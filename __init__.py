@@ -8,7 +8,7 @@ bl_info = {
     "author": "Null",
     "description": "Null project Pipeline tool box",
     "blender": (4, 2, 0),
-    "version": (0, 0, 1),  # 更新版本号
+    "version": (0, 0, 2),  # 更新版本号
     "location": "3D View > Sidebar > Pipeline Tools",
     "warning": "",
     "doc_url": "",
@@ -380,7 +380,8 @@ class PIPELINE_OT_IKFKSwitch(Operator):
         self.report({'INFO'}, f"已切换 {limb_type} 到 {mode} 模式")
         
         return {'FINISHED'}
-
+#---------------------------------------------------------------
+#---------------------------------------------------------------
 class PIPELINE_OT_SwitchMode(Operator):
     """切换模式"""
     bl_idname = "pipeline.switch_mode"
@@ -399,7 +400,8 @@ class PIPELINE_OT_SwitchMode(Operator):
         """执行模式切换操作"""
         bpy.ops.object.mode_set(mode=self.mode)
         return {'FINISHED'}
-
+#---------------------------------------------------------------
+#---------------------------------------------------------------
 class PIPELINE_OT_OpenPanel(Operator):
     """打开Pipeline面板"""
     bl_idname = "pipeline.open_panel"
@@ -416,7 +418,8 @@ class PIPELINE_OT_OpenPanel(Operator):
         # 提示用户手动切换到Pipeline Tool标签
         self.report({'INFO'}, "请手动切换到Pipeline Tool标签")
         return {'FINISHED'}
-
+#---------------------------------------------------------------
+#---------------------------------------------------------------
 class PIPELINE_OT_InstallExtensions(Operator):
     """安装扩展"""
     bl_idname = "pipeline.install_extensions"
@@ -424,25 +427,78 @@ class PIPELINE_OT_InstallExtensions(Operator):
     
     def execute(self, context):
         """执行安装扩展操作"""
-        # 实际应用中应使用扩展管理器API
-        self.report({'INFO'}, "扩展安装功能需要扩展管理器支持")
+        # 扩展安装命令列表
+        install_commands = [
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='camera_shakify')",
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='add_camera_rigs')",
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='f2')",
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='auto_mirror')",
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='EdgeFlow')",
+        ]
+        
+        # 执行所有安装命令
+        for cmd in install_commands:
+            try:
+                # 执行命令
+                exec(cmd)
+                self.report({'INFO'}, f"已执行命令: {cmd}")
+            except Exception as e:
+                self.report({'ERROR'}, f"执行命令失败: {cmd} - {str(e)}")
+        
         return {'FINISHED'}
-
+#---------------------------------------------------------------
 class PIPELINE_OT_UpdateExtensions(Operator):
     """更新扩展"""
     bl_idname = "pipeline.update_extensions"
     bl_label = "更新扩展"
     
     def execute(self, context):
-        """执行更新扩展操作"""
-        # 实际应用中应使用扩展管理器API
-        self.report({'INFO'}, "扩展更新功能需要扩展管理器支持")
+        """执行更新所有扩展操作"""
+        try:
+            # 使用指定的命令更新所有扩展
+            bpy.ops.extensions.package_upgrade_all()
+            self.report({'INFO'}, "所有扩展已更新")
+        except Exception as e:
+            self.report({'ERROR'}, f"更新扩展失败: {str(e)}")
         return {'FINISHED'}
+#---------------------------------------------------------------
+
+#---------------------------------------------------------------
+# 路径选择操作符
+class PIPELINE_OT_PlayblastPathSelect(Operator):
+    bl_idname = "pipeline.playblast_path_select"
+    bl_label = "选择预览动画输出路径"
+    
+    filepath: StringProperty(
+        subtype='FILE_PATH',
+        description="选择预览动画的输出路径"
+    )
+    
+    def execute(self, context):
+        """设置预览动画输出路径"""
+        context.scene.pipeline_playblast_filepath = self.filepath
+        return {'FINISHED'}
+    
+    def invoke(self, context, event):
+        """打开文件浏览器选择路径"""
+        # 设置默认输出路径
+        if not self.filepath:
+            blend_filepath = context.blend_data.filepath
+            if blend_filepath:
+                blend_dir = os.path.dirname(blend_filepath)
+                self.filepath = os.path.join(blend_dir, "playblast")
+            else:
+                self.filepath = os.path.join(os.path.expanduser("~"), "playblast")
+        
+        # 打开文件浏览器
+        context.window_manager.fileselect_add(self)
+        return {'RUNNING_MODAL'}
+#---------------------------------------------------------------
+
+
 
 #---------------------------------------------------------------
 # 面板UI - 只在3D视图中显示
-#---------------------------------------------------------------
-
 class PIPELINE_PT_MainPanel(Panel):
     bl_label = "Null Project Pipeline Box"
     bl_space_type = 'VIEW_3D'  # 只在3D视图中显示
@@ -474,7 +530,7 @@ class PIPELINE_PT_MainPanel(Panel):
                  icon='TRIA_DOWN' if context.scene.pipeline_show_empty_tools else 'TRIA_RIGHT',
                  icon_only=True, emboss=False
         )
-        row.label(text="空物体工具")
+        row.label(text="空物体")
         
         if context.scene.pipeline_show_empty_tools:
             row = box.row()
@@ -482,6 +538,7 @@ class PIPELINE_PT_MainPanel(Panel):
             row.prop(context.scene, "pipeline_empty_size", text="大小")
             box.operator("pipeline.add_empty", text="添加空物体")
         
+    
         # 摄像机工具 - 折叠面板
         box = layout.box()
         row = box.row()
@@ -493,19 +550,9 @@ class PIPELINE_PT_MainPanel(Panel):
         
         if context.scene.pipeline_show_camera_tools:
             box.operator("pipeline.set_active_camera", text="设为活动摄像机")
-        
-        # IK/FK切换 - 折叠面板
-        box = layout.box()
-        row = box.row()
-        row.prop(context.scene, "pipeline_show_ikfk_tools", 
-                 icon='TRIA_DOWN' if context.scene.pipeline_show_ikfk_tools else 'TRIA_RIGHT',
-                 icon_only=True, emboss=False
-        )
-        row.label(text="Rigfy__IK/FK切换")
-        
-        if context.scene.pipeline_show_ikfk_tools:
-            box.operator("pipeline.ikfk_switch", text="切换IK/FK")
-        
+            box.operator("", text="")
+
+
         # 动画工具 - 折叠面板
         box = layout.box()
         row = box.row()
@@ -520,6 +567,10 @@ class PIPELINE_PT_MainPanel(Panel):
             row.operator("pipeline.keyframe_character", text="完整角色关键帧").key_type = 'WHOLE'
             row.operator("pipeline.keyframe_character", text="选中骨骼关键帧").key_type = 'SELECTED'
         
+        if context.scene.pipeline_show_ikfk_tools:
+            box.operator("pipeline.ikfk_switch", text="Rigfy切换IK/FK")
+    
+        
         # 骨骼工具 - 折叠面板
         box = layout.box()
         row = box.row()
@@ -527,7 +578,7 @@ class PIPELINE_PT_MainPanel(Panel):
                  icon='TRIA_DOWN' if context.scene.pipeline_show_rig_tools else 'TRIA_RIGHT',
                  icon_only=True, emboss=False
         )
-        row.label(text="Rigfy__骨骼工具")
+        row.label(text="Rigfy骨骼工具")
         
         if context.scene.pipeline_show_rig_tools:
             row = box.row()
@@ -576,55 +627,25 @@ class PIPELINE_PT_MainPanel(Panel):
                 row = box.row()
                 row.operator("pipeline.delete_playblast", text="删除预览动画", icon='TRASH')
         
-        # 扩展工具 - 折叠面板 (新增)
+        # 扩展工具 - 折叠面板
         box = layout.box()
         row = box.row()
         row.prop(context.scene, "pipeline_show_extension_tools", 
                  icon='TRIA_DOWN' if context.scene.pipeline_show_extension_tools else 'TRIA_RIGHT',
                  icon_only=True, emboss=False
         )
-        row.label(text="扩展工具")
+        row.label(text="扩展")
         
         if context.scene.pipeline_show_extension_tools:
             row = box.row()
             row.operator("pipeline.install_extensions", text="安装扩展")
             row.operator("pipeline.update_extensions", text="更新扩展")
 
-# 路径选择操作符
-class PIPELINE_OT_PlayblastPathSelect(Operator):
-    bl_idname = "pipeline.playblast_path_select"
-    bl_label = "选择预览动画输出路径"
-    
-    filepath: StringProperty(
-        subtype='FILE_PATH',
-        description="选择预览动画的输出路径"
-    )
-    
-    def execute(self, context):
-        """设置预览动画输出路径"""
-        context.scene.pipeline_playblast_filepath = self.filepath
-        return {'FINISHED'}
-    
-    def invoke(self, context, event):
-        """打开文件浏览器选择路径"""
-        # 设置默认输出路径
-        if not self.filepath:
-            blend_filepath = context.blend_data.filepath
-            if blend_filepath:
-                blend_dir = os.path.dirname(blend_filepath)
-                self.filepath = os.path.join(blend_dir, "playblast")
-            else:
-                self.filepath = os.path.join(os.path.expanduser("~"), "playblast")
-        
-        # 打开文件浏览器
-        context.window_manager.fileselect_add(self)
-        return {'RUNNING_MODAL'}
 
+#---------------------------------------------------------------
 
 #---------------------------------------------------------------
 # 属性定义
-#---------------------------------------------------------------
-
 def register_properties():
     """注册插件属性"""
     bpy.types.Scene.pipeline_playblast_quality = EnumProperty(
@@ -719,11 +740,12 @@ def register_properties():
         default=True
     )
     
-    # 新增：扩展工具显示状态
+    #   扩展工具显示状态
     bpy.types.Scene.pipeline_show_extension_tools = BoolProperty(
         name="显示扩展工具",
         default=True
     )
+
 
 def unregister_properties():
     """注销插件属性"""
@@ -744,9 +766,10 @@ def unregister_properties():
     del bpy.types.Scene.pipeline_show_extension_tools
 
 #---------------------------------------------------------------
-# 注册与注销
-#---------------------------------------------------------------
 
+
+#---------------------------------------------------------------
+# 注册与注销
 classes = (
     PIPELINE_OT_AddMetarig,
     PIPELINE_OT_GenerateRig,
