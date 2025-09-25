@@ -1,0 +1,105 @@
+# 翻译了所以注释，因为我看不懂，大概大概了一下，字会很多。
+
+# 定义清单模式版本，用于标识清单文件遵循的规范版本
+schema_version = "0.0.1"
+
+# 示例：Blender扩展的清单文件
+# 请根据您的扩展修改以下值
+# Example of manifest file for a Blender extension
+# Change the values according to your 
+
+#   Null project Pipeline tool box
+id = "null_project_pipeline_tool_box"   # 扩展的唯一标识符，应采用逆序域名格式确保全局唯一性（如：org.blender.community.extension）
+version = "0.0.1"   # 扩展的语义化版本号（遵循major.minor.patch格式）
+name = "Null project Pipeline tool box"   # 扩展的显示名称（用户可见）
+tagline = "This extension was made in my pipeline "   # 扩展的简短描述（通常显示在扩展列表中）
+maintainer = "Developer null <shinggin@qq.com>"   # 维护者信息（姓名 <邮箱>）
+# Supported types: "add-on", "theme"
+type = "add-on"   # 扩展类型：支持 "add-on"（插件）或 "theme"（主题）
+
+# # 可选：相关链接（文档、支持、源代码等）
+
+# # Optional: link to documentation, support, source files, etc
+# website = "https://extensions.blender.org/add-ons/my-example-package/"
+
+# # 可选：标签列表（由Blender和扩展平台定义，用于分类和搜索）
+# # 参考链接1：Blender扩展标签列表
+# # Optional: tag list defined by Blender and server, see:
+# # https://docs.blender.org/manual/en/dev/advanced/extensions/tags.html
+# tags = ["Animation", "Sequencer"]
+
+# 最低兼容的Blender版本（语义化版本号）
+blender_version_min = "4.2.0"
+# # 可选：最高兼容的Blender版本（超出此版本可能不兼容）
+# # 可后续在扩展平台上调整，若发现兼容性问题时可添加
+# # Optional: Blender version that the extension does not support, earlier versions are supported.
+# # This can be omitted and defined later on the extensions platform if an issue is found.
+# blender_version_max = "5.1.0"
+
+# 扩展许可证（必须使用SPDX标识符，参考链接2和链接3）
+# 支持多个许可证（列表形式），需以"SPDX:"前缀指定
+# License conforming to https://spdx.org/licenses/ (use "SPDX: prefix)
+# https://docs.blender.org/manual/en/dev/advanced/extensions/licenses.html
+license = [
+  "SPDX:GPL-3.0-or-later",
+]
+# # 可选：版权声明（某些许可证要求必须包含）
+# # Optional: required by some licenses.
+# copyright = [
+#   "2002-2024 Developer Name",
+#   "1998 Company Name",
+# ]
+
+# # 可选：支持的平台列表。若省略，则默认支持所有操作系统
+# # Optional: list of supported platforms. If omitted, the extension will be available in all operating systems.
+# platforms = ["windows-x64", "macos-arm64", "linux-x64"]
+# # 其他支持的平台标识符："windows-arm64", "macos-x64"
+# # Other supported platforms: "windows-arm64", "macos-x64"
+
+# # 可选：捆绑第三方Python模块（参考链接4）
+# # 需提供wheel文件相对路径（通常置于./wheels/目录）
+# # Optional: bundle 3rd party Python modules.
+# # https://docs.blender.org/manual/en/dev/advanced/extensions/python_wheels.html
+# wheels = [
+#   "./wheels/hexdump-3.3-py3-none-any.whl",
+#   "./wheels/jsmin-3.0.1-py3-none-any.whl",
+# ]
+
+# # 可选：声明扩展所需的系统权限（参考链接5）
+# # 支持权限类型：files（文件系统）、network（网络）、clipboard（剪贴板）、camera（相机）、microphone（麦克风）
+# # 若使用network权限，必须同时检查bpy.app.online_access状态
+# # 每个权限需提供简短的使用理由（不带句号结尾）
+# # 详细说明应在文档或扩展详情页提供
+# # Optional: add-ons can list which resources they will require:
+# # * files (for access of any filesystem operations)
+# # * network (for internet access)
+# # * clipboard (to read and/or write the system clipboard)
+# # * camera (to capture photos and videos)
+# # * microphone (to capture audio)
+# #
+# # If using network, remember to also check `bpy.app.online_access`
+# # https://docs.blender.org/manual/en/dev/advanced/extensions/addons.html#internet-access
+# #
+# # For each permission it is important to also specify the reason why it is required.
+# # Keep this a single short sentence without a period (.) at the end.
+# # For longer explanations use the documentation or detail page.
+#
+# [permissions]
+# network = "Need to sync motion-capture data to server"
+# files = "Import/export FBX from/to disk"
+# clipboard = "Copy and paste bone transforms"
+
+# # 可选：高级构建配置
+# # 构建命令参考：https://docs.blender.org/manual/en/dev/advanced/extensions/command_line_arguments.html#command-line-args-extension-build
+# [build]
+# # 默认排除模式（通常无需修改）
+# # Optional: advanced build settings.
+# # https://docs.blender.org/manual/en/dev/advanced/extensions/command_line_arguments.html#command-line-args-extension-build
+# [build]
+# # These are the default build excluded patterns.
+# # You only need to edit them if you want different options.
+# paths_exclude_pattern = [
+#   "__pycache__/",             # 排除Python缓存目录
+#   "/.git/",                   # 排除Git版本控制目录
+#   "/*.zip",                   # 排除所有zip压缩文件
+# ]
