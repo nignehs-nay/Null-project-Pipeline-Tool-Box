@@ -8,7 +8,7 @@ bl_info = {
     "author": "Null",
     "description": "Pipeline tools for Null Project workflow",
     "blender": (4, 2, 0),
-    "version": (0, 0, 5),  # 更新版本号
+    "version": (0, 0, 2),  # 更新版本号
     "location": "3D View > Sidebar > Pipeline Tools",
     "warning": "",
     "doc_url": "",
@@ -785,14 +785,14 @@ def register_properties():
             ('LOW', "低质量", "快速预览"),
             ('MEDIUM', "中等质量", "平衡速度和质量")
         ],
-        default='MEDIUM'
+        default='LOW'
     )
     
     bpy.types.Scene.pipeline_playblast_format = EnumProperty(
         name="预览格式",
         items=[
             ('QUICKTIME', "QuickTime", "MOV格式"),
-            ('MP4', "MP4/H.264", "MP4格式，H.264编码"),
+            ('MP4', "MP4/H.264", "MP4格式,H.264编码"),
         ],
         default='QUICKTIME'
     )
