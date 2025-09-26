@@ -8,7 +8,7 @@ bl_info = {
     "author": "Null",
     "description": "Pipeline tools for Null Project workflow",
     "blender": (4, 2, 0),
-    "version": (0, 0, 2),
+    "version": (0, 0, 5),  # 更新版本号
     "location": "3D View > Sidebar > Pipeline Tools",
     "warning": "",
     "doc_url": "",
@@ -16,11 +16,16 @@ bl_info = {
 }
 
 #---------------------------------------------------------------
-# 工具类定义
+# 工具类定义 - 操作符(Operator)
 #---------------------------------------------------------------
 
 class PIPELINE_OT_AddMetarig(Operator):
-    """添加Metarig骨骼"""
+    """
+    添加Metarig骨骼操作符
+    功能：在场景中添加标准人体或简化人体骨骼
+    参数：
+        rig_type: 骨骼类型（METARIG: 标准人体骨骼, BASIC: 简化人体骨骼）
+    """
     bl_idname = "pipeline.add_metarig"
     bl_label = "添加Metarig"
     bl_options = {'REGISTER', 'UNDO'}
@@ -43,7 +48,10 @@ class PIPELINE_OT_AddMetarig(Operator):
         return {'FINISHED'}
 
 class PIPELINE_OT_GenerateRig(Operator):
-    """生成Rigify绑定"""
+    """
+    生成Rigify绑定操作符
+    功能：为选中的骨骼生成Rigify绑定
+    """
     bl_idname = "pipeline.generate_rig"
     bl_label = "生成绑定"
     bl_options = {'REGISTER', 'UNDO'}
@@ -59,7 +67,15 @@ class PIPELINE_OT_GenerateRig(Operator):
             return {'CANCELLED'}
 
 class PIPELINE_OT_Playblast(Operator):
-    """创建预览动画"""
+    """
+    创建预览动画操作符
+    功能：创建动画预览视频
+    参数：
+        quality: 预览质量（LOW: 低质量, MEDIUM: 中等质量）
+        format: 输出格式（QUICKTIME: MOV格式, MP4: MP4格式）
+        show_file: 完成后是否显示文件
+        use_default_path: 是否使用默认输出路径
+    """
     bl_idname = "pipeline.playblast"
     bl_label = "预览动画"
     bl_options = {'REGISTER'}
@@ -174,7 +190,10 @@ class PIPELINE_OT_Playblast(Operator):
         return {'FINISHED'}
 
 class PIPELINE_OT_DeletePlayblast(Operator):
-    """删除预览动画"""
+    """
+    删除预览动画操作符
+    功能：删除最后创建的预览动画文件
+    """
     bl_idname = "pipeline.delete_playblast"
     bl_label = "删除预览动画"
     
@@ -193,7 +212,10 @@ class PIPELINE_OT_DeletePlayblast(Operator):
         return {'FINISHED'}
 
 class PIPELINE_OT_PlayblastPathSelect(Operator):
-    """选择预览动画输出路径"""
+    """
+    选择预览动画输出路径操作符
+    功能：打开文件浏览器选择预览动画的输出路径
+    """
     bl_idname = "pipeline.playblast_path_select"
     bl_label = "选择预览动画输出路径"
     
@@ -223,7 +245,13 @@ class PIPELINE_OT_PlayblastPathSelect(Operator):
         return {'RUNNING_MODAL'}
 
 class PIPELINE_OT_AddEmpty(Operator):
-    """添加空物体"""
+    """
+    添加空物体操作符
+    功能：在场景中添加指定类型的空物体
+    参数：
+        empty_type: 空物体类型（PLAIN_AXES: 坐标轴, ARROWS: 箭头, CUBE: 立方体, CIRCLE: 圆形）
+        size: 空物体大小
+    """
     bl_idname = "pipeline.add_empty"
     bl_label = "添加空物体"
     bl_options = {'REGISTER', 'UNDO'}
@@ -257,7 +285,10 @@ class PIPELINE_OT_AddEmpty(Operator):
         return {'FINISHED'}
 
 class PIPELINE_OT_SetActiveCamera(Operator):
-    """设置活动摄像机"""
+    """
+    设置活动摄像机操作符
+    功能：将选中的摄像机设置为场景的活动摄像机
+    """
     bl_idname = "pipeline.set_active_camera"
     bl_label = "设为活动摄像机"
     
@@ -272,7 +303,12 @@ class PIPELINE_OT_SetActiveCamera(Operator):
             return {'CANCELLED'}
 
 class PIPELINE_OT_KeyframeCharacter(Operator):
-    """插入角色关键帧"""
+    """
+    插入角色关键帧操作符
+    功能：为角色插入关键帧
+    参数：
+        key_type: 关键帧类型（WHOLE: 完整角色, SELECTED: 选中骨骼）
+    """
     bl_idname = "pipeline.keyframe_character"
     bl_label = "插入角色关键帧"
     
@@ -299,7 +335,10 @@ class PIPELINE_OT_KeyframeCharacter(Operator):
         return {'FINISHED'}
 
 class PIPELINE_OT_IKFKSwitch(Operator):
-    """IK/FK切换"""
+    """
+    IK/FK切换操作符
+    功能：自动切换选中骨骼的IK/FK状态
+    """
     bl_idname = "pipeline.ikfk_switch"
     bl_label = "IK/FK切换"
     bl_options = {'REGISTER', 'UNDO'}
@@ -404,7 +443,12 @@ class PIPELINE_OT_IKFKSwitch(Operator):
         return {'FINISHED'}
 
 class PIPELINE_OT_SwitchMode(Operator):
-    """切换模式"""
+    """
+    切换模式操作符
+    功能：在物体模式和姿态模式之间切换
+    参数：
+        mode: 目标模式（OBJECT: 物体模式, POSE: 姿态模式）
+    """
     bl_idname = "pipeline.switch_mode"
     bl_label = "切换模式"
     
@@ -423,7 +467,10 @@ class PIPELINE_OT_SwitchMode(Operator):
         return {'FINISHED'}
 
 class PIPELINE_OT_InstallExtensions(Operator):
-    """安装扩展"""
+    """
+    安装扩展操作符
+    功能：安装Blender扩展
+    """
     bl_idname = "pipeline.install_extensions"
     bl_label = "安装扩展"
     
@@ -432,45 +479,45 @@ class PIPELINE_OT_InstallExtensions(Operator):
         # 扩展安装命令列表
         install_commands = [
             "bpy.ops.extensions.package_install(repo_index=0, pkg_id='camera_shakify')",                # camera shakify
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='add_camera_rigs')",             # add camera rigs
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='add_camera_rigs')",               # add camera rigs
             "bpy.ops.extensions.package_install(repo_index=0, pkg_id='f2')",                            # f2
             "bpy.ops.extensions.package_install(repo_index=0, pkg_id='auto_mirror')",                   # auto mirror
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='EdgeFlow')",                       # EdgeFlow
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='Half_Knife')",                   # Half Knife
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='copy_object_name_to_data')",     # copy object name to data
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='cell_fracture')",                # cell fracture
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='EdgeFlow')",                      # EdgeFlow
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='Half_Knife')",                    # Half Knife
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='copy_object_name_to_data')",       # copy object name to data
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='cell_fracture')",                 # cell fracture
             "bpy.ops.extensions.package_install(repo_index=0, pkg_id='icon_viewer')",                   # icon viewer
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='hot_node')",                     # hot node
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='hot_node')",                      # hot node
             "bpy.ops.extensions.package_install(repo_index=0, pkg_id='material_library')",              # material library
             "bpy.ops.extensions.package_install(repo_index=0, pkg_id='mmd_tools')",                     # mmd tools
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='vrm')",                            # VRM format
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='mio3_uv')",                        # mio3 uv
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='named_attribute_list')",           # named attribute list
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='node_align')",                   # node align
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='node_group_presets')",           # node group presets
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='vrm')",                           # VRM format
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='mio3_uv')",                       # mio3 uv
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='named_attribute_list')",          # named attribute list
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='node_align')",                    # node align
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='node_group_presets')",            # node group presets
             "bpy.ops.extensions.package_install(repo_index=0, pkg_id='screencast_keys')",               # screencast keys
             "bpy.ops.extensions.package_install(repo_index=0, pkg_id='render_preset')",                 # render preset
             "bpy.ops.extensions.package_install(repo_index=0, pkg_id='quick_groups')",                  # quick groups
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='time_tracker')",                   # time tracker
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='time_tracker')",                  # time tracker
             "bpy.ops.extensions.package_install(repo_index=0, pkg_id='toggle_language')",               # toggle language
             "bpy.ops.extensions.package_install(repo_index=0, pkg_id='ucupaint')",                      # Ucupaint
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='ZenUVChecker')",                   # Zen UV Checker
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='you_are_autosave')",               # you are autosave
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='ZenUVChecker')",                  # Zen UV Checker
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='you_are_autosave')",              # you are autosave
             "bpy.ops.extensions.package_install(repo_index=0, pkg_id='Modifier_List_Fork')",            # Modifier 
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='right_mouse_navigation')",         # Right Mouse Navigation
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='simple_deform_helper')",            # simple deform helper
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='PlaceHelper')",                    # PlaceHelper
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='popoti_align_helper')",             # popoti align helper
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='Colorista')",                       # Colorista
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='proceduraltiles')",                 # procedural tiles
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='noise_nodes')",                    # noise nodes
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='MustardUI')",                        # MustardUI
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='polychase')",                       # polychase
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='sakura_poselib')",                  # sakura poselib
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='Sakura_Rig_GUI')",                 # Sakura Rig GUI
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='easy_clouds')",                    # easy clouds
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='sapling_tree_gen')",               # sapling tree gen
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='jiggle_physics')",                 # jiggle physics
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='right_mouse_navigation')",        # Right Mouse Navigation
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='simple_deform_helper')",          # simple deform helper
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='PlaceHelper')",                   # PlaceHelper
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='popoti_align_helper')",           # popoti align helper
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='Colorista')",                     # Colorista
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='proceduraltiles')",               # procedural 
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='noise_nodes')",                   # noise nodes
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='MustardUI')",                     # MustardUI
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='polychase')",                     # polychase
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='sakura_poselib')",                # sakura poselib
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='Sakura_Rig_GUI')",                # Sakura Rig GUI
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='easy_clouds')",                   # easy clouds
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='sapling_tree_gen')",              # sapling tree gen
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='jiggle_physics')",                # jiggle physics
         ]
         
         # 执行所有安装命令
@@ -485,7 +532,10 @@ class PIPELINE_OT_InstallExtensions(Operator):
         return {'FINISHED'}
 
 class PIPELINE_OT_UpdateExtensions(Operator):
-    """更新扩展"""
+    """
+    更新扩展操作符
+    功能：更新所有已安装的扩展
+    """
     bl_idname = "pipeline.update_extensions"
     bl_label = "更新扩展"
     
@@ -499,37 +549,27 @@ class PIPELINE_OT_UpdateExtensions(Operator):
             self.report({'ERROR'}, f"更新扩展失败: {str(e)}")
         return {'FINISHED'}
 
-class PIPELINE_OT_PROXY_GEO_RIGFY(Operator):
-    bl_idname = "pipeline.proxy_geometry_to_rigfy"
-    bl_label = "proxy_geometry_to_rigfy"
-
-def execute(self, context):
-        """
-        执行为Rigfy创建代理几何体操作
-        1. 检查当前是否在姿态模式
-        2. 检查是否选择了骨骼对象
-
-        """
-        # 检查当前模式
-        if context.mode != 'POSE':
-            self.report({'ERROR'}, "请在姿态模式下操作")
-            return {'CANCELLED'}
-
-        # 
-
 #---------------------------------------------------------------
-# 面板类定义
+# 面板类定义 - 用户界面(Panel)
 #---------------------------------------------------------------
 
 class PIPELINE_PT_MainPanel(Panel):
-    """主面板类,显示在3D视图的侧边栏"""
+    """
+    主面板类
+    功能：在3D视图的侧边栏显示插件的主要界面
+    位置：3D视图 > 侧边栏 > Pipeline Tools
+    """
     bl_label = "Null Project Pipeline Box"
     bl_space_type = 'VIEW_3D'  # 只在3D视图中显示
     bl_region_type = 'UI'      # 侧边栏
     bl_category = "Pipeline Tool"   # 标签名称
     
     def draw(self, context):
-        """绘制面板UI"""
+        """
+        绘制面板UI
+        1. 显示功能分区选择
+        2. 根据选择的分区显示不同的工具
+        """
         layout = self.layout
         
         # 功能分区选择
@@ -549,7 +589,10 @@ class PIPELINE_PT_MainPanel(Panel):
             self.draw_settings_section(layout, context)
     
     def draw_default_section(self, layout, context):
-        """绘制默认分区"""
+        """
+        绘制默认分区
+        包含空物体工具和摄像机工具
+        """
         # 空物体工具
         box = layout.box()
         row = box.row()
@@ -578,7 +621,10 @@ class PIPELINE_PT_MainPanel(Panel):
             box.operator("pipeline.set_active_camera", text="设为活动摄像机")
     
     def draw_animation_section(self, layout, context):
-        """绘制动画分区"""
+        """
+        绘制动画分区
+        包含模式切换、关键帧工具、IK/FK切换和预览工具
+        """
         # 模式切换
         box = layout.box()
         row = box.row()
@@ -667,7 +713,10 @@ class PIPELINE_PT_MainPanel(Panel):
                 row.operator("pipeline.delete_playblast", text="删除预览动画", icon='TRASH')
     
     def draw_rigging_section(self, layout, context):
-        """绘制骨骼分区"""
+        """
+        绘制骨骼分区
+        包含骨骼工具和模式切换
+        """
         box = layout.box()
         row = box.row()
         row.prop(context.scene, "pipeline_show_rig_tools", 
@@ -677,6 +726,12 @@ class PIPELINE_PT_MainPanel(Panel):
         row.label(text="骨骼工具")
         
         if context.scene.pipeline_show_rig_tools:
+            # 模式切换按钮
+            row = box.row()
+            row.operator("pipeline.switch_mode", text="物体模式").mode = 'OBJECT'
+            row.operator("pipeline.switch_mode", text="姿态模式").mode = 'POSE'
+            
+            # 添加骨骼按钮
             row = box.row()
             row.operator("pipeline.add_metarig", text="Human Metarig").rig_type = 'METARIG'
             row.operator("pipeline.add_metarig", text="Basic Human").rig_type = 'BASIC'
@@ -686,7 +741,10 @@ class PIPELINE_PT_MainPanel(Panel):
             row.operator("pipeline.generate_rig", text="生成绑定")
     
     def draw_settings_section(self, layout, context):
-        """绘制设置分区"""
+        """
+        绘制设置分区
+        包含扩展工具
+        """
         box = layout.box()
         row = box.row()
         row.prop(context.scene, "pipeline_show_extension_tools", 
@@ -701,11 +759,14 @@ class PIPELINE_PT_MainPanel(Panel):
             row.operator("pipeline.update_extensions", text="在线更新已安装的扩展")
 
 #---------------------------------------------------------------
-# 属性注册
+# 属性注册 - 自定义场景属性
 #---------------------------------------------------------------
 
 def register_properties():
-    """注册插件属性"""
+    """
+    注册插件属性
+    功能：定义插件使用的所有场景属性
+    """
     # 预览动画属性
     bpy.types.Scene.pipeline_playblast_quality = EnumProperty(
         name="预览质量",
@@ -822,7 +883,10 @@ def register_properties():
     )
 
 def unregister_properties():
-    """注销插件属性"""
+    """
+    注销插件属性
+    功能：移除插件添加的所有场景属性
+    """
     # 预览动画属性
     del bpy.types.Scene.pipeline_playblast_quality
     del bpy.types.Scene.pipeline_playblast_format
@@ -849,7 +913,7 @@ def unregister_properties():
     del bpy.types.Scene.pipeline_show_extension_tools
 
 #---------------------------------------------------------------
-# 注册与注销
+# 注册与注销 - 插件生命周期管理
 #---------------------------------------------------------------
 
 # 所有类的列表
@@ -870,7 +934,12 @@ classes = (
 )
 
 def register():
-    """注册插件"""
+    """
+    注册插件
+    功能：
+    1. 注册所有操作符和面板类
+    2. 注册插件属性
+    """
     # 注册所有类
     for cls in classes:
         bpy.utils.register_class(cls)
@@ -880,7 +949,12 @@ def register():
     print("Null Project Pipeline Tool Box 已注册")
 
 def unregister():
-    """注销插件"""
+    """
+    注销插件
+    功能：
+    1. 注销所有操作符和面板类
+    2. 注销插件属性
+    """
     # 注销所有类
     for cls in classes:
         bpy.utils.unregister_class(cls)
