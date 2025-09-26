@@ -785,14 +785,14 @@ def register_properties():
             ('LOW', "低质量", "快速预览"),
             ('MEDIUM', "中等质量", "平衡速度和质量")
         ],
-        default='MEDIUM'
+        default='LOW'
     )
     
     bpy.types.Scene.pipeline_playblast_format = EnumProperty(
         name="预览格式",
         items=[
             ('QUICKTIME', "QuickTime", "MOV格式"),
-            ('MP4', "MP4/H.264", "MP4格式，H.264编码"),
+            ('MP4', "MP4/H.264", "MP4格式,H.264编码"),
         ],
         default='QUICKTIME'
     )
