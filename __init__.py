@@ -717,20 +717,31 @@ class PIPELINE_PT_MainPanel(Panel):
         绘制骨骼分区
         包含骨骼工具和模式切换
         """
+        # 模式切换子分区
         box = layout.box()
         row = box.row()
-        row.prop(context.scene, "pipeline_show_rig_tools", 
-                 icon='TRIA_DOWN' if context.scene.pipeline_show_rig_tools else 'TRIA_RIGHT',
+        row.prop(context.scene, "pipeline_show_mode_tools_rigging", 
+                 icon='TRIA_DOWN' if context.scene.pipeline_show_mode_tools_rigging else 'TRIA_RIGHT',
                  icon_only=True, emboss=False
         )
-        row.label(text="骨骼工具")
+        row.label(text="模式切换")
+
         
-        if context.scene.pipeline_show_rig_tools:
+        if context.scene.pipeline_show_mode_tools_rigging:
             # 模式切换按钮
             row = box.row()
             row.operator("pipeline.switch_mode", text="物体模式").mode = 'OBJECT'
             row.operator("pipeline.switch_mode", text="姿态模式").mode = 'POSE'
-            
+
+        box = layout.box()
+        row = box.row()
+        row.prop(context.scene, "pipeline_show_rig_tools", 
+                 icon='TRIA_DOWN' if context.scene.pipeline_show_rig_tools else 'TRIA_RIGHT',
+                 icon_only=True, emboss=False  
+        )
+        row.label(text="骨骼工具")
+        if context.scene.pipeline_show_rig_tools:
+
             # 添加骨骼按钮
             row = box.row()
             row.operator("pipeline.add_metarig", text="Human Metarig").rig_type = 'METARIG'
@@ -880,6 +891,10 @@ def register_properties():
     bpy.types.Scene.pipeline_show_extension_tools = BoolProperty(
         name="显示扩展工具",
         default=True
+    )        
+    bpy.types.Scene.pipeline_show_mode_tools_rigging = BoolProperty(
+        name="显示模式工具（骨骼分区）",
+        default=True
     )
 
 def unregister_properties():
@@ -911,6 +926,7 @@ def unregister_properties():
     del bpy.types.Scene.pipeline_show_playblast_tools
     del bpy.types.Scene.pipeline_show_rig_tools
     del bpy.types.Scene.pipeline_show_extension_tools
+    del bpy.types.Scene.pipeline_show_mode_tools_rigging
 
 #---------------------------------------------------------------
 # 注册与注销 - 插件生命周期管理
