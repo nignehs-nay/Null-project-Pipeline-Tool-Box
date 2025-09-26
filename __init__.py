@@ -8,7 +8,7 @@ bl_info = {
     "author": "Null",
     "description": "Pipeline tools for Null Project workflow",
     "blender": (4, 2, 0),
-    "version": (0, 0, 5),  # 更新版本号
+    "version": (0, 0, 2),  # 更新版本号
     "location": "3D View > Sidebar > Pipeline Tools",
     "warning": "",
     "doc_url": "",
