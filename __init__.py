@@ -4,11 +4,11 @@ from bpy.types import Operator, Panel
 from bpy.props import EnumProperty, FloatProperty, BoolProperty, StringProperty
 
 bl_info = {
-    "name": "Null project Pipeline tool box",
+    "name": "Null Project Pipeline Toolbox",
     "author": "Null",
-    "description": "Null project Pipeline tool box",
+    "description": "Pipeline tools for Null Project workflow",
     "blender": (4, 2, 0),
-    "version": (0, 0, 2),  # 更新版本号
+    "version": (0, 0, 2),
     "location": "3D View > Sidebar > Pipeline Tools",
     "warning": "",
     "doc_url": "",
@@ -68,8 +68,7 @@ class PIPELINE_OT_Playblast(Operator):
         name="质量",
         items=[
             ('LOW', "低质量", "快速预览"),
-            ('MEDIUM', "中等质量", "平衡速度和质量"),
-            ('HIGH', "高质量", "接近最终渲染")
+            ('MEDIUM', "中等质量", "平衡速度和质量")
         ],
         default='MEDIUM'
     )
@@ -77,11 +76,10 @@ class PIPELINE_OT_Playblast(Operator):
     format: EnumProperty(
         name="格式",
         items=[
-            ('MP4', "MP4/H.264", "MP4格式，H.264编码"),
             ('QUICKTIME', "QuickTime", "MOV格式"),
-            ('AVI', "AVI", "AVI格式")
+            ('MP4', "MP4/H.264", "MP4格式，H.264编码"),
         ],
-        default='MP4'
+        default='QUICKTIME'
     )
     
     show_file: BoolProperty(
@@ -89,27 +87,11 @@ class PIPELINE_OT_Playblast(Operator):
         default=True
     )
     
-    filepath: StringProperty(
-        name="输出路径",
-        subtype='FILE_PATH',
-        default="",
-        description="选择预览动画的输出路径"
+    use_default_path: BoolProperty(
+        name="使用默认路径",
+        default=True,
+        description="使用默认输出路径而不弹出对话框"
     )
-    
-    def invoke(self, context, event):
-        """打开文件浏览器选择输出路径"""
-        # 设置默认输出路径
-        if not self.filepath:
-            blend_filepath = context.blend_data.filepath
-            if blend_filepath:
-                blend_dir = os.path.dirname(blend_filepath)
-                self.filepath = os.path.join(blend_dir, "playblast")
-            else:
-                self.filepath = os.path.join(os.path.expanduser("~"), "playblast")
-        
-        # 打开文件浏览器
-        context.window_manager.fileselect_add(self)
-        return {'RUNNING_MODAL'}
     
     def execute(self, context):
         """执行预览动画渲染"""
@@ -128,32 +110,43 @@ class PIPELINE_OT_Playblast(Operator):
             context.scene.display.shading.color_type = 'RANDOM'
             
             # 设置输出路径
-            context.scene.render.filepath = self.filepath
+            if self.use_default_path:
+                # 使用默认路径
+                blend_filepath = context.blend_data.filepath
+                if blend_filepath:
+                    blend_dir = os.path.dirname(blend_filepath)
+                    filepath = os.path.join(blend_dir, "playblast")
+                else:
+                    filepath = os.path.join(os.path.expanduser("~"), "playblast")
+            else:
+                # 使用用户设置的路径
+                filepath = context.scene.pipeline_playblast_filepath
             
             # 设置输出格式
             context.scene.render.image_settings.file_format = 'FFMPEG'
             
-            # 根据格式设置
-            if self.format == 'MP4':
-                context.scene.render.ffmpeg.format = 'MPEG4'
-                context.scene.render.filepath += ".mp4"
-            elif self.format == 'QUICKTIME':
+            # 添加文件扩展名
+            if self.format == 'QUICKTIME':
                 context.scene.render.ffmpeg.format = 'QUICKTIME'
-                context.scene.render.filepath += ".mov"
-            else:  # AVI
-                context.scene.render.ffmpeg.format = 'AVI'
-                context.scene.render.filepath += ".avi"
+                filepath += ".mov"            
+            elif self.format == 'MP4':
+                context.scene.render.ffmpeg.format = 'MPEG4'
+                filepath += ".mp4"
+            
+            context.scene.render.filepath = filepath
             
             # 根据质量设置
             if self.quality == 'LOW':
                 context.scene.render.ffmpeg.constant_rate_factor = 'LOW'
                 context.scene.render.ffmpeg.ffmpeg_preset = 'REALTIME'
-            elif self.quality == 'MEDIUM':
+            else:  # MEDIUM
                 context.scene.render.ffmpeg.constant_rate_factor = 'MEDIUM'
                 context.scene.render.ffmpeg.ffmpeg_preset = 'GOOD'
-            else:  # HIGH
-                context.scene.render.ffmpeg.constant_rate_factor = 'HIGH'
-                context.scene.render.ffmpeg.ffmpeg_preset = 'BEST'
+            
+            # 确保输出目录存在
+            output_dir = os.path.dirname(filepath)
+            if not os.path.exists(output_dir):
+                os.makedirs(output_dir)
             
             # 渲染动画
             bpy.ops.render.render(animation=True, use_viewport=True)
@@ -163,12 +156,11 @@ class PIPELINE_OT_Playblast(Operator):
             
             # 显示文件
             if self.show_file:
-                output_dir = os.path.dirname(context.scene.render.filepath)
                 if os.path.exists(output_dir):
                     bpy.ops.wm.path_open(filepath=output_dir)
             
             # 保存渲染文件路径
-            context.scene.pipeline_last_playblast = context.scene.render.filepath
+            context.scene.pipeline_last_playblast = filepath
         finally:
             # 恢复原始设置
             context.scene.render.engine = original_engine
@@ -200,6 +192,36 @@ class PIPELINE_OT_DeletePlayblast(Operator):
             self.report({'WARNING'}, "没有可删除的预览文件")
         return {'FINISHED'}
 
+class PIPELINE_OT_PlayblastPathSelect(Operator):
+    """选择预览动画输出路径"""
+    bl_idname = "pipeline.playblast_path_select"
+    bl_label = "选择预览动画输出路径"
+    
+    filepath: StringProperty(
+        subtype='FILE_PATH',
+        description="选择预览动画的输出路径"
+    )
+    
+    def execute(self, context):
+        """设置预览动画输出路径"""
+        context.scene.pipeline_playblast_filepath = self.filepath
+        return {'FINISHED'}
+    
+    def invoke(self, context, event):
+        """打开文件浏览器选择路径"""
+        # 设置默认输出路径
+        if not self.filepath:
+            blend_filepath = context.blend_data.filepath
+            if blend_filepath:
+                blend_dir = os.path.dirname(blend_filepath)
+                self.filepath = os.path.join(blend_dir, "playblast")
+            else:
+                self.filepath = os.path.join(os.path.expanduser("~"), "playblast")
+        
+        # 打开文件浏览器
+        context.window_manager.fileselect_add(self)
+        return {'RUNNING_MODAL'}
+
 class PIPELINE_OT_AddEmpty(Operator):
     """添加空物体"""
     bl_idname = "pipeline.add_empty"
@@ -209,7 +231,7 @@ class PIPELINE_OT_AddEmpty(Operator):
     empty_type: EnumProperty(
         name="类型",
         items=[
-            ('PLAIN_A', "坐标轴", "简单坐标轴"),
+            ('PLAIN_AXES', "坐标轴", "简单坐标轴"),
             ('ARROWS', "箭头", "箭头指示器"),
             ('CUBE', "立方体", "立方体形状"),
             ('CIRCLE', "圆形", "圆形形状")
@@ -380,8 +402,7 @@ class PIPELINE_OT_IKFKSwitch(Operator):
         self.report({'INFO'}, f"已切换 {limb_type} 到 {mode} 模式")
         
         return {'FINISHED'}
-#---------------------------------------------------------------
-#---------------------------------------------------------------
+
 class PIPELINE_OT_SwitchMode(Operator):
     """切换模式"""
     bl_idname = "pipeline.switch_mode"
@@ -400,26 +421,7 @@ class PIPELINE_OT_SwitchMode(Operator):
         """执行模式切换操作"""
         bpy.ops.object.mode_set(mode=self.mode)
         return {'FINISHED'}
-#---------------------------------------------------------------
-#---------------------------------------------------------------
-class PIPELINE_OT_OpenPanel(Operator):
-    """打开Pipeline面板"""
-    bl_idname = "pipeline.open_panel"
-    bl_label = "打开Pipeline面板"
-    
-    def execute(self, context):
-        """执行打开面板操作"""
-        # 确保在3D视图
-        context.area.type = 'VIEW_3D'
-        
-        # 确保侧边栏可见
-        context.space_data.show_region_ui = True
-        
-        # 提示用户手动切换到Pipeline Tool标签
-        self.report({'INFO'}, "请手动切换到Pipeline Tool标签")
-        return {'FINISHED'}
-#---------------------------------------------------------------
-#---------------------------------------------------------------
+
 class PIPELINE_OT_InstallExtensions(Operator):
     """安装扩展"""
     bl_idname = "pipeline.install_extensions"
@@ -429,11 +431,46 @@ class PIPELINE_OT_InstallExtensions(Operator):
         """执行安装扩展操作"""
         # 扩展安装命令列表
         install_commands = [
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='camera_shakify')",
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='add_camera_rigs')",
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='f2')",
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='auto_mirror')",
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='EdgeFlow')",
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='camera_shakify')",                # camera shakify
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='add_camera_rigs')",             # add camera rigs
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='f2')",                            # f2
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='auto_mirror')",                   # auto mirror
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='EdgeFlow')",                       # EdgeFlow
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='Half_Knife')",                   # Half Knife
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='copy_object_name_to_data')",     # copy object name to data
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='cell_fracture')",                # cell fracture
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='icon_viewer')",                   # icon viewer
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='hot_node')",                     # hot node
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='material_library')",              # material library
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='mmd_tools')",                     # mmd tools
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='vrm')",                            # VRM format
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='mio3_uv')",                        # mio3 uv
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='named_attribute_list')",           # named attribute list
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='node_align')",                   # node align
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='node_group_presets')",           # node group presets
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='screencast_keys')",               # screencast keys
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='render_preset')",                 # render preset
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='quick_groups')",                  # quick groups
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='time_tracker')",                   # time tracker
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='toggle_language')",               # toggle language
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='ucupaint')",                      # Ucupaint
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='ZenUVChecker')",                   # Zen UV Checker
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='you_are_autosave')",               # you are autosave
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='Modifier_List_Fork')",            # Modifier 
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='right_mouse_navigation')",         # Right Mouse Navigation
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='simple_deform_helper')",            # simple deform helper
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='PlaceHelper')",                    # PlaceHelper
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='popoti_align_helper')",             # popoti align helper
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='Colorista')",                       # Colorista
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='proceduraltiles')",                 # procedural tiles
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='noise_nodes')",                    # noise nodes
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='MustardUI')",                        # MustardUI
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='polychase')",                       # polychase
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='sakura_poselib')",                  # sakura poselib
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='Sakura_Rig_GUI')",                 # Sakura Rig GUI
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='easy_clouds')",                    # easy clouds
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='sapling_tree_gen')",               # sapling tree gen
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='jiggle_physics')",                 # jiggle physics
         ]
         
         # 执行所有安装命令
@@ -446,7 +483,7 @@ class PIPELINE_OT_InstallExtensions(Operator):
                 self.report({'ERROR'}, f"执行命令失败: {cmd} - {str(e)}")
         
         return {'FINISHED'}
-#---------------------------------------------------------------
+
 class PIPELINE_OT_UpdateExtensions(Operator):
     """更新扩展"""
     bl_idname = "pipeline.update_extensions"
@@ -461,45 +498,31 @@ class PIPELINE_OT_UpdateExtensions(Operator):
         except Exception as e:
             self.report({'ERROR'}, f"更新扩展失败: {str(e)}")
         return {'FINISHED'}
-#---------------------------------------------------------------
+
+class PIPELINE_OT_PROXY_GEO_RIGFY(Operator):
+    bl_idname = "pipeline.proxy_geometry_to_rigfy"
+    bl_label = "proxy_geometry_to_rigfy"
+
+def execute(self, context):
+        """
+        执行为Rigfy创建代理几何体操作
+        1. 检查当前是否在姿态模式
+        2. 检查是否选择了骨骼对象
+
+        """
+        # 检查当前模式
+        if context.mode != 'POSE':
+            self.report({'ERROR'}, "请在姿态模式下操作")
+            return {'CANCELLED'}
+
+        # 
 
 #---------------------------------------------------------------
-# 路径选择操作符
-class PIPELINE_OT_PlayblastPathSelect(Operator):
-    bl_idname = "pipeline.playblast_path_select"
-    bl_label = "选择预览动画输出路径"
-    
-    filepath: StringProperty(
-        subtype='FILE_PATH',
-        description="选择预览动画的输出路径"
-    )
-    
-    def execute(self, context):
-        """设置预览动画输出路径"""
-        context.scene.pipeline_playblast_filepath = self.filepath
-        return {'FINISHED'}
-    
-    def invoke(self, context, event):
-        """打开文件浏览器选择路径"""
-        # 设置默认输出路径
-        if not self.filepath:
-            blend_filepath = context.blend_data.filepath
-            if blend_filepath:
-                blend_dir = os.path.dirname(blend_filepath)
-                self.filepath = os.path.join(blend_dir, "playblast")
-            else:
-                self.filepath = os.path.join(os.path.expanduser("~"), "playblast")
-        
-        # 打开文件浏览器
-        context.window_manager.fileselect_add(self)
-        return {'RUNNING_MODAL'}
+# 面板类定义
 #---------------------------------------------------------------
 
-
-
-#---------------------------------------------------------------
-# 面板UI - 只在3D视图中显示
 class PIPELINE_PT_MainPanel(Panel):
+    """主面板类,显示在3D视图的侧边栏"""
     bl_label = "Null Project Pipeline Box"
     bl_space_type = 'VIEW_3D'  # 只在3D视图中显示
     bl_region_type = 'UI'      # 侧边栏
@@ -509,7 +532,54 @@ class PIPELINE_PT_MainPanel(Panel):
         """绘制面板UI"""
         layout = self.layout
         
-        # 模式切换 - 折叠面板
+        # 功能分区选择
+        box = layout.box()
+        row = box.row()
+        row.label(text="功能分区")
+        row.prop(context.scene, "pipeline_active_section", expand=True)
+        
+        # 根据选择的分区显示不同的工具
+        if context.scene.pipeline_active_section == 'DEFAULT':
+            self.draw_default_section(layout, context)
+        elif context.scene.pipeline_active_section == 'ANIMATION':
+            self.draw_animation_section(layout, context)
+        elif context.scene.pipeline_active_section == 'RIGGING':
+            self.draw_rigging_section(layout, context)
+        else:  # SETTINGS
+            self.draw_settings_section(layout, context)
+    
+    def draw_default_section(self, layout, context):
+        """绘制默认分区"""
+        # 空物体工具
+        box = layout.box()
+        row = box.row()
+        row.prop(context.scene, "pipeline_show_empty_tools", 
+                 icon='TRIA_DOWN' if context.scene.pipeline_show_empty_tools else 'TRIA_RIGHT',
+                 icon_only=True, emboss=False
+        )
+        row.label(text="空物体工具")
+        
+        if context.scene.pipeline_show_empty_tools:
+            row = box.row()
+            row.prop(context.scene, "pipeline_empty_type", text="类型")
+            row.prop(context.scene, "pipeline_empty_size", text="大小")
+            box.operator("pipeline.add_empty", text="添加空物体")
+        
+        # 摄像机工具
+        box = layout.box()
+        row = box.row()
+        row.prop(context.scene, "pipeline_show_camera_tools", 
+                 icon='TRIA_DOWN' if context.scene.pipeline_show_camera_tools else 'TRIA_RIGHT',
+                 icon_only=True, emboss=False
+        )
+        row.label(text="摄像机工具")
+        
+        if context.scene.pipeline_show_camera_tools:
+            box.operator("pipeline.set_active_camera", text="设为活动摄像机")
+    
+    def draw_animation_section(self, layout, context):
+        """绘制动画分区"""
+        # 模式切换
         box = layout.box()
         row = box.row()
         row.prop(context.scene, "pipeline_show_mode_tools", 
@@ -523,80 +593,40 @@ class PIPELINE_PT_MainPanel(Panel):
             row.operator("pipeline.switch_mode", text="物体模式").mode = 'OBJECT'
             row.operator("pipeline.switch_mode", text="姿态模式").mode = 'POSE'
         
-        # 空物体工具 - 折叠面板
+        # 关键帧工具
         box = layout.box()
         row = box.row()
-        row.prop(context.scene, "pipeline_show_empty_tools", 
-                 icon='TRIA_DOWN' if context.scene.pipeline_show_empty_tools else 'TRIA_RIGHT',
+        row.prop(context.scene, "pipeline_show_keyframe_tools", 
+                 icon='TRIA_DOWN' if context.scene.pipeline_show_keyframe_tools else 'TRIA_RIGHT',
                  icon_only=True, emboss=False
         )
-        row.label(text="空物体")
+        row.label(text="关键帧工具")
         
-        if context.scene.pipeline_show_empty_tools:
-            row = box.row()
-            row.prop(context.scene, "pipeline_empty_type", text="类型")
-            row.prop(context.scene, "pipeline_empty_size", text="大小")
-            box.operator("pipeline.add_empty", text="添加空物体")
-        
-    
-        # 摄像机工具 - 折叠面板
-        box = layout.box()
-        row = box.row()
-        row.prop(context.scene, "pipeline_show_camera_tools", 
-                 icon='TRIA_DOWN' if context.scene.pipeline_show_camera_tools else 'TRIA_RIGHT',
-                 icon_only=True, emboss=False
-        )
-        row.label(text="摄像机工具")
-        
-        if context.scene.pipeline_show_camera_tools:
-            box.operator("pipeline.set_active_camera", text="设为活动摄像机")
-            box.operator("", text="")
-
-
-        # 动画工具 - 折叠面板
-        box = layout.box()
-        row = box.row()
-        row.prop(context.scene, "pipeline_show_animation_tools", 
-                 icon='TRIA_DOWN' if context.scene.pipeline_show_animation_tools else 'TRIA_RIGHT',
-                 icon_only=True, emboss=False
-        )
-        row.label(text="动画关键帧工具")
-        
-        if context.scene.pipeline_show_animation_tools:
+        if context.scene.pipeline_show_keyframe_tools:
             row = box.row()
             row.operator("pipeline.keyframe_character", text="完整角色关键帧").key_type = 'WHOLE'
             row.operator("pipeline.keyframe_character", text="选中骨骼关键帧").key_type = 'SELECTED'
         
-        if context.scene.pipeline_show_ikfk_tools:
-            box.operator("pipeline.ikfk_switch", text="Rigfy切换IK/FK")
-    
-        
-        # 骨骼工具 - 折叠面板
+        # IK/FK切换(rigfy)
         box = layout.box()
         row = box.row()
-        row.prop(context.scene, "pipeline_show_rig_tools", 
-                 icon='TRIA_DOWN' if context.scene.pipeline_show_rig_tools else 'TRIA_RIGHT',
+        row.prop(context.scene, "pipeline_show_ikfk_tools", 
+                 icon='TRIA_DOWN' if context.scene.pipeline_show_ikfk_tools else 'TRIA_RIGHT',
                  icon_only=True, emboss=False
         )
-        row.label(text="Rigfy骨骼工具")
+        row.label(text="Rigfy骨骼IK/FK工具")
         
-        if context.scene.pipeline_show_rig_tools:
-            row = box.row()
-            row.operator("pipeline.add_metarig", text="Human Metarig").rig_type = 'METARIG'
-            row.operator("pipeline.add_metarig", text="Basic Human").rig_type = 'BASIC'
-            
-            # 生成绑定按钮
-            row = box.row()
-            row.operator("pipeline.generate_rig", text="生成绑定")
+        if context.scene.pipeline_show_ikfk_tools:
+            box.operator("pipeline.ikfk_switch", text="切换IK/FK")
         
-        # 预览工具 - 折叠面板
+        # 预览工具
         box = layout.box()
         row = box.row()
         row.prop(context.scene, "pipeline_show_playblast_tools", 
                  icon='TRIA_DOWN' if context.scene.pipeline_show_playblast_tools else 'TRIA_RIGHT',
                  icon_only=True, emboss=False
         )
-        row.label(text="预览工具")
+        row.label(text="预览动画")
         
         if context.scene.pipeline_show_playblast_tools:
             # 质量设置
@@ -611,23 +641,52 @@ class PIPELINE_PT_MainPanel(Panel):
             row = box.row()
             row.prop(context.scene, "pipeline_playblast_show_file", text="完成后显示文件")
             
-            # 路径选择按钮
+            # 使用默认路径选项
             row = box.row()
-            row.operator("pipeline.playblast_path_select", text="选择输出路径")
-            if context.scene.pipeline_playblast_filepath:
-                row = box.row()
-                row.label(text=f"路径: {context.scene.pipeline_playblast_filepath}")
-            
+            row.prop(context.scene, "pipeline_playblast_use_default_path", text="使用默认路径")
+
             # 渲染按钮
             row = box.row()
-            row.operator("pipeline.playblast", text="创建预览动画")
-            
+            op = row.operator("pipeline.playblast", text="创建预览动画")
+            op.quality = context.scene.pipeline_playblast_quality
+            op.format = context.scene.pipeline_playblast_format
+            op.show_file = context.scene.pipeline_playblast_show_file
+            op.use_default_path = context.scene.pipeline_playblast_use_default_path
+
+            # 路径选择按钮
+            if not context.scene.pipeline_playblast_use_default_path:
+                row = box.row()
+                row.operator("pipeline.playblast_path_select", text="选择输出路径")
+                if context.scene.pipeline_playblast_filepath:
+                    row = box.row()
+                    row.label(text=f"路径: {context.scene.pipeline_playblast_filepath}")
+           
             # 删除按钮
             if context.scene.pipeline_last_playblast:
                 row = box.row()
                 row.operator("pipeline.delete_playblast", text="删除预览动画", icon='TRASH')
+    
+    def draw_rigging_section(self, layout, context):
+        """绘制骨骼分区"""
+        box = layout.box()
+        row = box.row()
+        row.prop(context.scene, "pipeline_show_rig_tools", 
+                 icon='TRIA_DOWN' if context.scene.pipeline_show_rig_tools else 'TRIA_RIGHT',
+                 icon_only=True, emboss=False
+        )
+        row.label(text="骨骼工具")
         
-        # 扩展工具 - 折叠面板
+        if context.scene.pipeline_show_rig_tools:
+            row = box.row()
+            row.operator("pipeline.add_metarig", text="Human Metarig").rig_type = 'METARIG'
+            row.operator("pipeline.add_metarig", text="Basic Human").rig_type = 'BASIC'
+            
+            # 生成绑定按钮
+            row = box.row()
+            row.operator("pipeline.generate_rig", text="生成绑定")
+    
+    def draw_settings_section(self, layout, context):
+        """绘制设置分区"""
         box = layout.box()
         row = box.row()
         row.prop(context.scene, "pipeline_show_extension_tools", 
@@ -638,22 +697,21 @@ class PIPELINE_PT_MainPanel(Panel):
         
         if context.scene.pipeline_show_extension_tools:
             row = box.row()
-            row.operator("pipeline.install_extensions", text="安装扩展")
-            row.operator("pipeline.update_extensions", text="更新扩展")
-
-
-#---------------------------------------------------------------
+            row.operator("pipeline.install_extensions", text="在线安装需要的扩展")
+            row.operator("pipeline.update_extensions", text="在线更新已安装的扩展")
 
 #---------------------------------------------------------------
-# 属性定义
+# 属性注册
+#---------------------------------------------------------------
+
 def register_properties():
     """注册插件属性"""
+    # 预览动画属性
     bpy.types.Scene.pipeline_playblast_quality = EnumProperty(
         name="预览质量",
         items=[
             ('LOW', "低质量", "快速预览"),
-            ('MEDIUM', "中等质量", "平衡速度和质量"),
-            ('HIGH', "高质量", "接近最终渲染")
+            ('MEDIUM', "中等质量", "平衡速度和质量")
         ],
         default='MEDIUM'
     )
@@ -661,16 +719,21 @@ def register_properties():
     bpy.types.Scene.pipeline_playblast_format = EnumProperty(
         name="预览格式",
         items=[
-            ('MP4', "MP4/H.264", "MP4格式，H.264编码"),
             ('QUICKTIME', "QuickTime", "MOV格式"),
-            ('AVI', "AVI", "AVI格式")
+            ('MP4', "MP4/H.264", "MP4格式，H.264编码"),
         ],
-        default='MP4'
+        default='QUICKTIME'
     )
     
     bpy.types.Scene.pipeline_playblast_show_file = BoolProperty(
         name="完成后显示文件",
         default=True
+    )
+    
+    bpy.types.Scene.pipeline_playblast_use_default_path = BoolProperty(
+        name="使用默认路径",
+        default=True,
+        description="使用默认输出路径而不弹出对话框"
     )
     
     bpy.types.Scene.pipeline_playblast_filepath = StringProperty(
@@ -686,6 +749,7 @@ def register_properties():
         description="最后创建的预览动画路径"
     )
     
+    # 空物体属性
     bpy.types.Scene.pipeline_empty_type = EnumProperty(
         name="空物体类型",
         items=[
@@ -704,12 +768,19 @@ def register_properties():
         max=10.0
     )
     
-    # 折叠面板显示状态
-    bpy.types.Scene.pipeline_show_mode_tools = BoolProperty(
-        name="显示模式工具",
-        default=True
+    # 分区选择
+    bpy.types.Scene.pipeline_active_section = EnumProperty(
+        name="活动分区",
+        items=[
+            ('DEFAULT', "默认", "默认工具"),
+            ('ANIMATION', "动画", "动画工具"),
+            ('RIGGING', "骨骼", "骨骼工具"),
+            ('SETTINGS', "设置", "设置工具")
+        ],
+        default='DEFAULT'
     )
     
+    # 折叠面板显示状态
     bpy.types.Scene.pipeline_show_empty_tools = BoolProperty(
         name="显示空物体工具",
         default=True
@@ -720,18 +791,18 @@ def register_properties():
         default=True
     )
     
+    bpy.types.Scene.pipeline_show_mode_tools = BoolProperty(
+        name="显示模式工具",
+        default=True
+    )
+    
+    bpy.types.Scene.pipeline_show_keyframe_tools = BoolProperty(
+        name="显示关键帧工具",
+        default=True
+    )
+    
     bpy.types.Scene.pipeline_show_ikfk_tools = BoolProperty(
         name="显示IK/FK工具",
-        default=True
-    )
-    
-    bpy.types.Scene.pipeline_show_animation_tools = BoolProperty(
-        name="显示动画工具",
-        default=True
-    )
-    
-    bpy.types.Scene.pipeline_show_rig_tools = BoolProperty(
-        name="显示骨骼工具",
         default=True
     )
     
@@ -740,36 +811,48 @@ def register_properties():
         default=True
     )
     
-    #   扩展工具显示状态
+    bpy.types.Scene.pipeline_show_rig_tools = BoolProperty(
+        name="显示骨骼工具",
+        default=True
+    )
+    
     bpy.types.Scene.pipeline_show_extension_tools = BoolProperty(
         name="显示扩展工具",
         default=True
     )
 
-
 def unregister_properties():
     """注销插件属性"""
+    # 预览动画属性
     del bpy.types.Scene.pipeline_playblast_quality
     del bpy.types.Scene.pipeline_playblast_format
     del bpy.types.Scene.pipeline_playblast_show_file
+    del bpy.types.Scene.pipeline_playblast_use_default_path
     del bpy.types.Scene.pipeline_playblast_filepath
     del bpy.types.Scene.pipeline_last_playblast
+    
+    # 空物体属性
     del bpy.types.Scene.pipeline_empty_type
     del bpy.types.Scene.pipeline_empty_size
-    del bpy.types.Scene.pipeline_show_mode_tools
+    
+    # 分区选择
+    del bpy.types.Scene.pipeline_active_section
+    
+    # 折叠面板显示状态
     del bpy.types.Scene.pipeline_show_empty_tools
     del bpy.types.Scene.pipeline_show_camera_tools
+    del bpy.types.Scene.pipeline_show_mode_tools
+    del bpy.types.Scene.pipeline_show_keyframe_tools
     del bpy.types.Scene.pipeline_show_ikfk_tools
-    del bpy.types.Scene.pipeline_show_animation_tools
-    del bpy.types.Scene.pipeline_show_rig_tools
     del bpy.types.Scene.pipeline_show_playblast_tools
+    del bpy.types.Scene.pipeline_show_rig_tools
     del bpy.types.Scene.pipeline_show_extension_tools
 
 #---------------------------------------------------------------
-
-
-#---------------------------------------------------------------
 # 注册与注销
+#---------------------------------------------------------------
+
+# 所有类的列表
 classes = (
     PIPELINE_OT_AddMetarig,
     PIPELINE_OT_GenerateRig,
@@ -781,7 +864,6 @@ classes = (
     PIPELINE_OT_KeyframeCharacter,
     PIPELINE_OT_IKFKSwitch,
     PIPELINE_OT_SwitchMode,
-    PIPELINE_OT_OpenPanel,
     PIPELINE_OT_InstallExtensions,
     PIPELINE_OT_UpdateExtensions,
     PIPELINE_PT_MainPanel
@@ -789,17 +871,24 @@ classes = (
 
 def register():
     """注册插件"""
+    # 注册所有类
     for cls in classes:
         bpy.utils.register_class(cls)
+    
+    # 注册属性
     register_properties()
     print("Null Project Pipeline Tool Box 已注册")
 
 def unregister():
     """注销插件"""
+    # 注销所有类
     for cls in classes:
         bpy.utils.unregister_class(cls)
+    
+    # 注销属性
     unregister_properties()
     print("Null Project Pipeline Tool Box 已注销")
 
+# 当脚本直接运行时注册插件
 if __name__ == "__main__":
     register()
