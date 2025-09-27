@@ -1,14 +1,19 @@
 import bpy
 import os
-from bpy.types import Operator, Panel
-from bpy.props import EnumProperty, FloatProperty, BoolProperty, StringProperty
+import math
+from bpy.types import Operator, Panel, PropertyGroup
+from bpy.props import EnumProperty, FloatProperty, BoolProperty, StringProperty, IntProperty
+from mathutils import Matrix, Vector, Euler
 
+#---------------------------------------------------------------
+# 插件信息定义
+#---------------------------------------------------------------
 bl_info = {
     "name": "Null Project Pipeline Toolbox",
     "author": "Null",
     "description": "Pipeline tools for Null Project workflow",
     "blender": (4, 2, 0),
-    "version": (0, 0, 2),  # 更新版本号
+    "version": (0, 0, 3),  
     "location": "3D View > Sidebar > Pipeline Tools",
     "warning": "",
     "doc_url": "",
@@ -18,18 +23,14 @@ bl_info = {
 #---------------------------------------------------------------
 # 工具类定义 - 操作符(Operator)
 #---------------------------------------------------------------
-
-class PIPELINE_OT_AddMetarig(Operator):
-    """
-    添加Metarig骨骼操作符
-    功能：在场景中添加标准人体或简化人体骨骼
-    参数：
-        rig_type: 骨骼类型（METARIG: 标准人体骨骼, BASIC: 简化人体骨骼）
-    """
+#   添加Metarig骨骼
+class PIPELINE_OT_Addrigfy(Operator):
+    """添加Metarig骨骼操作符"""
     bl_idname = "pipeline.add_metarig"
-    bl_label = "添加Metarig"
-    bl_options = {'REGISTER', 'UNDO'}
-    
+    bl_label = "添加rigfy骨骼"
+    bl_options = {'REGISTER', 'UNDO'}   #   支持撤销
+
+    #   选择骨骼类型
     rig_type: EnumProperty(
         name="骨骼类型",
         items=[
@@ -40,7 +41,6 @@ class PIPELINE_OT_AddMetarig(Operator):
     )
     
     def execute(self, context):
-        """执行添加Metarig操作"""
         if self.rig_type == 'METARIG':
             bpy.ops.object.armature_human_metarig_add()
         else:
@@ -48,16 +48,12 @@ class PIPELINE_OT_AddMetarig(Operator):
         return {'FINISHED'}
 
 class PIPELINE_OT_GenerateRig(Operator):
-    """
-    生成Rigify绑定操作符
-    功能：为选中的骨骼生成Rigify绑定
-    """
+    """生成Rigify绑定操作符"""
     bl_idname = "pipeline.generate_rig"
     bl_label = "生成绑定"
     bl_options = {'REGISTER', 'UNDO'}
     
     def execute(self, context):
-        """执行生成绑定操作"""
         if context.active_object and context.active_object.type == 'ARMATURE':
             bpy.ops.pose.rigify_generate()
             self.report({'INFO'}, "Rigify绑定已生成")
@@ -67,15 +63,7 @@ class PIPELINE_OT_GenerateRig(Operator):
             return {'CANCELLED'}
 
 class PIPELINE_OT_Playblast(Operator):
-    """
-    创建预览动画操作符
-    功能：创建动画预览视频
-    参数：
-        quality: 预览质量（LOW: 低质量, MEDIUM: 中等质量）
-        format: 输出格式（QUICKTIME: MOV格式, MP4: MP4格式）
-        show_file: 完成后是否显示文件
-        use_default_path: 是否使用默认输出路径
-    """
+    """创建预览动画操作符"""
     bl_idname = "pipeline.playblast"
     bl_label = "预览动画"
     bl_options = {'REGISTER'}
@@ -93,7 +81,7 @@ class PIPELINE_OT_Playblast(Operator):
         name="格式",
         items=[
             ('QUICKTIME', "QuickTime", "MOV格式"),
-            ('MP4', "MP4/H.264", "MP4格式，H.264编码"),
+            ('MP4', "MP4/H.264", "MP4格式,H.264编码"),
         ],
         default='QUICKTIME'
     )
@@ -110,7 +98,6 @@ class PIPELINE_OT_Playblast(Operator):
     )
     
     def execute(self, context):
-        """执行预览动画渲染"""
         # 保存原始设置
         original_engine = context.scene.render.engine
         original_color_type = context.scene.display.shading.color_type
@@ -190,15 +177,11 @@ class PIPELINE_OT_Playblast(Operator):
         return {'FINISHED'}
 
 class PIPELINE_OT_DeletePlayblast(Operator):
-    """
-    删除预览动画操作符
-    功能：删除最后创建的预览动画文件
-    """
+    """删除预览动画操作符"""
     bl_idname = "pipeline.delete_playblast"
     bl_label = "删除预览动画"
     
     def execute(self, context):
-        """执行删除预览文件操作"""
         filepath = context.scene.pipeline_last_playblast
         if filepath and os.path.exists(filepath):
             try:
@@ -212,10 +195,7 @@ class PIPELINE_OT_DeletePlayblast(Operator):
         return {'FINISHED'}
 
 class PIPELINE_OT_PlayblastPathSelect(Operator):
-    """
-    选择预览动画输出路径操作符
-    功能：打开文件浏览器选择预览动画的输出路径
-    """
+    """选择预览动画输出路径操作符"""
     bl_idname = "pipeline.playblast_path_select"
     bl_label = "选择预览动画输出路径"
     
@@ -225,13 +205,10 @@ class PIPELINE_OT_PlayblastPathSelect(Operator):
     )
     
     def execute(self, context):
-        """设置预览动画输出路径"""
         context.scene.pipeline_playblast_filepath = self.filepath
         return {'FINISHED'}
     
     def invoke(self, context, event):
-        """打开文件浏览器选择路径"""
-        # 设置默认输出路径
         if not self.filepath:
             blend_filepath = context.blend_data.filepath
             if blend_filepath:
@@ -240,18 +217,11 @@ class PIPELINE_OT_PlayblastPathSelect(Operator):
             else:
                 self.filepath = os.path.join(os.path.expanduser("~"), "playblast")
         
-        # 打开文件浏览器
         context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
 
 class PIPELINE_OT_AddEmpty(Operator):
-    """
-    添加空物体操作符
-    功能：在场景中添加指定类型的空物体
-    参数：
-        empty_type: 空物体类型（PLAIN_AXES: 坐标轴, ARROWS: 箭头, CUBE: 立方体, CIRCLE: 圆形）
-        size: 空物体大小
-    """
+    """添加空物体操作符"""
     bl_idname = "pipeline.add_empty"
     bl_label = "添加空物体"
     bl_options = {'REGISTER', 'UNDO'}
@@ -275,7 +245,6 @@ class PIPELINE_OT_AddEmpty(Operator):
     )
     
     def execute(self, context):
-        """执行添加空物体操作"""
         bpy.ops.object.empty_add(
             type=self.empty_type,
             align='WORLD',
@@ -285,15 +254,11 @@ class PIPELINE_OT_AddEmpty(Operator):
         return {'FINISHED'}
 
 class PIPELINE_OT_SetActiveCamera(Operator):
-    """
-    设置活动摄像机操作符
-    功能：将选中的摄像机设置为场景的活动摄像机
-    """
+    """设置活动摄像机操作符"""
     bl_idname = "pipeline.set_active_camera"
     bl_label = "设为活动摄像机"
     
     def execute(self, context):
-        """设置活动摄像机"""
         if context.active_object and context.active_object.type == 'CAMERA':
             context.scene.camera = context.active_object
             self.report({'INFO'}, "活动摄像机已设置")
@@ -303,12 +268,7 @@ class PIPELINE_OT_SetActiveCamera(Operator):
             return {'CANCELLED'}
 
 class PIPELINE_OT_KeyframeCharacter(Operator):
-    """
-    插入角色关键帧操作符
-    功能：为角色插入关键帧
-    参数：
-        key_type: 关键帧类型（WHOLE: 完整角色, SELECTED: 选中骨骼）
-    """
+    """插入角色关键帧操作符"""
     bl_idname = "pipeline.keyframe_character"
     bl_label = "插入角色关键帧"
     
@@ -322,7 +282,6 @@ class PIPELINE_OT_KeyframeCharacter(Operator):
     )
     
     def execute(self, context):
-        """执行关键帧插入操作"""
         if context.mode != 'POSE':
             self.report({'ERROR'}, "请在姿态模式下操作")
             return {'CANCELLED'}
@@ -334,25 +293,92 @@ class PIPELINE_OT_KeyframeCharacter(Operator):
         
         return {'FINISHED'}
 
+class PIPELINE_OT_SwitchMode(Operator):
+    """切换模式操作符"""
+    bl_idname = "pipeline.switch_mode"
+    bl_label = "切换模式"
+    
+    mode: EnumProperty(
+        name="模式",
+        items=[
+            ('OBJECT', "物体模式", ""),
+            ('POSE', "姿态模式", "")
+        ],
+        default='OBJECT'
+    )
+    
+    def execute(self, context):
+        bpy.ops.object.mode_set(mode=self.mode)
+        return {'FINISHED'}
+
+class PIPELINE_OT_InstallExtensions(Operator):
+    """安装扩展操作符"""
+    bl_idname = "pipeline.install_extensions"
+    bl_label = "安装扩展"
+    
+    def execute(self, context):
+        install_commands = [
+            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='camera_shakify')",
+            # ... 其他安装命令 ...
+        ]
+        
+        for cmd in install_commands:
+            try:
+                exec(cmd)
+                self.report({'INFO'}, f"已执行命令: {cmd}")
+            except Exception as e:
+                self.report({'ERROR'}, f"执行命令失败: {cmd} - {str(e)}")
+        
+        return {'FINISHED'}
+
+class PIPELINE_OT_UpdateExtensions(Operator):
+    """更新扩展操作符"""
+    bl_idname = "pipeline.update_extensions"
+    bl_label = "更新扩展"
+    
+    def execute(self, context):
+        try:
+            bpy.ops.extensions.package_upgrade_all()
+            self.report({'INFO'}, "所有扩展已更新")
+        except Exception as e:
+            self.report({'ERROR'}, f"更新扩展失败: {str(e)}")
+        return {'FINISHED'}
+
+class PIPELINE_OT_FilterIKFKInDopesheet(Operator):
+    """在摄影表中过滤IK_FK属性操作符"""
+    bl_idname = "pipeline.filter_ikfk_in_dopesheet"
+    bl_label = "在摄影表中过滤IK_FK"
+    
+    def execute(self, context):
+        # 创建新窗口
+        bpy.ops.wm.window_new()
+        
+        # 获取新窗口的区域
+        area = None
+        for a in context.window_manager.windows[-1].screen.areas:
+            if a.type == 'DOPESHEET_EDITOR':
+                area = a
+                break
+        
+        if not area:
+            # 如果没有找到摄影表编辑器，则创建一个
+            area = context.window_manager.windows[-1].screen.areas[0]
+            area.ui_type = 'DOPESHEET'
+        
+        # 设置过滤条件
+        space_data = area.spaces.active
+        space_data.dopesheet.filter_text = "IK_FK"
+        space_data.dopesheet.show_only_selected = False
+        
+        return {'FINISHED'}
+
 class PIPELINE_OT_IKFKSwitch(Operator):
-    """
-    IK/FK切换操作符
-    功能：自动切换选中骨骼的IK/FK状态
-    """
+    """IK/FK切换操作符"""
     bl_idname = "pipeline.ikfk_switch"
     bl_label = "IK/FK切换"
     bl_options = {'REGISTER', 'UNDO'}
     
     def execute(self, context):
-        """
-        执行IK/FK切换操作
-        1. 检查当前是否在姿态模式
-        2. 检查是否选择了骨骼对象
-        3. 尝试识别肢体类型（左臂/右臂/左腿/右腿）
-        4. 获取对应的属性骨骼
-        5. 切换IK/FK状态
-        6. 报告操作结果
-        """
         # 检查当前模式
         if context.mode != 'POSE':
             self.report({'ERROR'}, "请在姿态模式下操作")
@@ -373,7 +399,7 @@ class PIPELINE_OT_IKFKSwitch(Operator):
         # 尝试识别肢体类型
         limb_type = None
         for bone in selected_bones:
-            bone_name = bone.name.lower()  # 转换为小写以进行不区分大小写的匹配
+            bone_name = bone.name.lower()
             
             # 检查左臂骨骼
             if ("hand_ik.l" in bone_name or "forearm_fk.l" in bone_name or 
@@ -400,10 +426,15 @@ class PIPELINE_OT_IKFKSwitch(Operator):
                   "thigh_ik.r" in bone_name):
                 limb_type = "LEG_R"
                 break
+            
+            # 检查手部骨骼
+            elif ("hand_ik" in bone_name or "hand_fk" in bone_name):
+                limb_type = "HAND"
+                break
         
         # 如果无法识别肢体类型，报告错误
         if not limb_type:
-            self.report({'ERROR'}, "无法识别肢体类型，请选择手臂或腿部骨骼")
+            self.report({'ERROR'}, "无法识别肢体类型,请选择手臂、腿部或手部骨骼")
             return {'CANCELLED'}
         
         # 肢体映射到属性骨骼名称
@@ -411,7 +442,8 @@ class PIPELINE_OT_IKFKSwitch(Operator):
             'ARM_L': "upper_arm_parent.L",
             'ARM_R': "upper_arm_parent.R",
             'LEG_L': "thigh_parent.L",
-            'LEG_R': "thigh_parent.R"
+            'LEG_R': "thigh_parent.R",
+            'HAND': "hand_ik"  # 手部使用不同的属性骨骼
         }
         
         # 获取属性骨骼名称
@@ -429,147 +461,301 @@ class PIPELINE_OT_IKFKSwitch(Operator):
         current_value = prop_bone.get("IK_FK", 0.0)
         
         # 自动切换状态
-        # 如果当前是IK模式(0.0)，则切换到FK模式(1.0)
-        # 如果当前是FK模式(1.0)，则切换到IK模式(0.0)
         new_value = 1.0 if current_value == 0.0 else 0.0
         
         # 设置新值
         prop_bone["IK_FK"] = new_value
         
+        # 根据切换方向执行相应的操作
+        if new_value == 1.0:  # IK切换到FK
+            if limb_type in ['ARM_L', 'ARM_R']:
+                # 左臂或右臂
+                side = 'L' if limb_type == 'ARM_L' else 'R'
+                
+                # 获取骨骼
+                upper_arm_ik = rig.pose.bones.get(f"upper_arm_ik.{side}")
+                forearm_ik = rig.pose.bones.get(f"forearm_ik.{side}")
+                hand_ik = rig.pose.bones.get(f"hand_ik.{side}")
+                
+                upper_arm_fk = rig.pose.bones.get(f"upper_arm_fk.{side}")
+                forearm_fk = rig.pose.bones.get(f"forearm_fk.{side}")
+                hand_fk = rig.pose.bones.get(f"hand_fk.{side}")
+                
+                # 执行IK到FK的切换操作
+                if upper_arm_ik and forearm_ik and hand_ik and upper_arm_fk and forearm_fk and hand_fk:
+                    # 确保FK骨骼使用四元数旋转
+                    for bone in [upper_arm_fk, forearm_fk, hand_fk]:
+                        if bone.rotation_mode != 'QUATERNION':
+                            bone.rotation_mode = 'QUATERNION'
+                    
+                    # 复制位置和旋转
+                    upper_arm_fk.location = upper_arm_ik.location.copy()
+                    upper_arm_fk.rotation_quaternion = upper_arm_ik.rotation_quaternion.copy()
+                    
+                    forearm_fk.location = forearm_ik.location.copy()
+                    forearm_fk.rotation_quaternion = forearm_ik.rotation_quaternion.copy()
+                    
+                    hand_fk.location = hand_ik.location.copy()
+                    hand_fk.rotation_quaternion = hand_ik.rotation_quaternion.copy()
+                    
+                    # 更新视图
+                    context.view_layer.update()
+            elif limb_type in ['LEG_L', 'LEG_R']:
+                # 左腿或右腿
+                side = 'L' if limb_type == 'LEG_L' else 'R'
+                
+                # 获取骨骼
+                thigh_ik = rig.pose.bones.get(f"thigh_ik.{side}")
+                shin_ik = rig.pose.bones.get(f"shin_ik.{side}")
+                foot_ik = rig.pose.bones.get(f"foot_ik.{side}")
+                toe_ik = rig.pose.bones.get(f"toe_ik.{side}")
+                
+                thigh_fk = rig.pose.bones.get(f"thigh_fk.{side}")
+                shin_fk = rig.pose.bones.get(f"shin_fk.{side}")
+                foot_fk = rig.pose.bones.get(f"foot_fk.{side}")
+                toe_fk = rig.pose.bones.get(f"toe_fk.{side}")
+                
+                # 执行IK到FK的切换操作
+                if thigh_ik and shin_ik and foot_ik and toe_ik and thigh_fk and shin_fk and foot_fk and toe_fk:
+                    # 确保FK骨骼使用四元数旋转
+                    for bone in [thigh_fk, shin_fk, foot_fk, toe_fk]:
+                        if bone.rotation_mode != 'QUATERNION':
+                            bone.rotation_mode = 'QUATERNION'
+                    
+                    # 复制位置和旋转
+                    thigh_fk.location = thigh_ik.location.copy()
+                    thigh_fk.rotation_quaternion = thigh_ik.rotation_quaternion.copy()
+                    
+                    shin_fk.location = shin_ik.location.copy()
+                    shin_fk.rotation_quaternion = shin_ik.rotation_quaternion.copy()
+                    
+                    foot_fk.location = foot_ik.location.copy()
+                    foot_fk.rotation_quaternion = foot_ik.rotation_quaternion.copy()
+                    
+                    toe_fk.location = toe_ik.location.copy()
+                    toe_fk.rotation_quaternion = toe_ik.rotation_quaternion.copy()
+                    
+                    # 更新视图
+                    context.view_layer.update()
+            elif limb_type == 'HAND':
+                # 手部
+                hand_ik = rig.pose.bones.get("hand_ik")
+                hand_fk = rig.pose.bones.get("hand_fk")
+                
+                # 执行IK到FK的切换操作
+                if hand_ik and hand_fk:
+                    # 确保FK骨骼使用四元数旋转
+                    if hand_fk.rotation_mode != 'QUATERNION':
+                        hand_fk.rotation_mode = 'QUATERNION'
+                    
+                    # 复制位置和旋转
+                    hand_fk.location = hand_ik.location.copy()
+                    hand_fk.rotation_quaternion = hand_ik.rotation_quaternion.copy()
+                    
+                    # 更新视图
+                    context.view_layer.update()
+        else:  # FK切换到IK
+            if limb_type in ['ARM_L', 'ARM_R']:
+                # 左臂或右臂
+                side = 'L' if limb_type == 'ARM_L' else 'R'
+                
+                # 获取骨骼
+                upper_arm_fk = rig.pose.bones.get(f"upper_arm_fk.{side}")
+                forearm_fk = rig.pose.bones.get(f"forearm_fk.{side}")
+                hand_fk = rig.pose.bones.get(f"hand_fk.{side}")
+                
+                upper_arm_ik = rig.pose.bones.get(f"upper_arm_ik.{side}")
+                forearm_ik = rig.pose.bones.get(f"forearm_ik.{side}")
+                hand_ik = rig.pose.bones.get(f"hand_ik.{side}")
+                pole_target = rig.pose.bones.get(f"upper_arm_ik_target.{side}")
+                
+                # 执行FK到IK的切换操作
+                if upper_arm_fk and forearm_fk and hand_fk and upper_arm_ik and forearm_ik and hand_ik and pole_target:
+                    # 复制位置和旋转
+                    upper_arm_ik.location = upper_arm_fk.location.copy()
+                    upper_arm_ik.rotation_quaternion = upper_arm_fk.rotation_quaternion.copy()
+                    
+                    forearm_ik.location = forearm_fk.location.copy()
+                    forearm_ik.rotation_quaternion = forearm_fk.rotation_quaternion.copy()
+                    
+                    hand_ik.location = hand_fk.location.copy()
+                    hand_ik.rotation_quaternion = hand_fk.rotation_quaternion.copy()
+                    
+                    # 匹配极目标
+                    match_pole_target(
+                        context.view_layer,
+                        upper_arm_ik,
+                        forearm_ik,
+                        pole_target,
+                        upper_arm_fk.matrix,
+                        1.0  # 长度
+                    )
+                    
+                    # 更新视图
+                    context.view_layer.update()
+            elif limb_type in ['LEG_L', 'LEG_R']:
+                # 左腿或右腿
+                side = 'L' if limb_type == 'LEG_L' else 'R'
+                
+                # 获取骨骼
+                thigh_fk = rig.pose.bones.get(f"thigh_fk.{side}")
+                shin_fk = rig.pose.bones.get(f"shin_fk.{side}")
+                foot_fk = rig.pose.bones.get(f"foot_fk.{side}")
+                toe_fk = rig.pose.bones.get(f"toe_fk.{side}")
+                
+                thigh_ik = rig.pose.bones.get(f"thigh_ik.{side}")
+                shin_ik = rig.pose.bones.get(f"shin_ik.{side}")
+                foot_ik = rig.pose.bones.get(f"foot_ik.{side}")
+                toe_ik = rig.pose.bones.get(f"toe_ik.{side}")
+                pole_target = rig.pose.bones.get(f"thigh_ik_target.{side}")
+                
+                # 执行FK到IK的切换操作
+                if thigh_fk and shin_fk and foot_fk and toe_fk and thigh_ik and shin_ik and foot_ik and toe_ik and pole_target:
+                    # 复制位置和旋转
+                    thigh_ik.location = thigh_fk.location.copy()
+                    thigh_ik.rotation_quaternion = thigh_fk.rotation_quaternion.copy()
+                    
+                    shin_ik.location = shin_fk.location.copy()
+                    shin_ik.rotation_quaternion = shin_fk.rotation_quaternion.copy()
+                    
+                    foot_ik.location = foot_fk.location.copy()
+                    foot_ik.rotation_quaternion = foot_fk.rotation_quaternion.copy()
+                    
+                    toe_ik.location = toe_fk.location.copy()
+                    toe_ik.rotation_quaternion = toe_fk.rotation_quaternion.copy()
+                    
+                    # 匹配极目标
+                    match_pole_target(
+                        context.view_layer,
+                        thigh_ik,
+                        shin_ik,
+                        pole_target,
+                        thigh_fk.matrix,
+                        1.0  # 长度
+                    )
+                    
+                    # 更新视图
+                    context.view_layer.update()
+            elif limb_type == 'HAND':
+                # 手部
+                hand_fk = rig.pose.bones.get("hand_fk")
+                hand_ik = rig.pose.bones.get("hand_ik")
+                
+                # 执行FK到IK的切换操作
+                if hand_fk and hand_ik:
+                    # 复制位置和旋转
+                    hand_ik.location = hand_fk.location.copy()
+                    hand_ik.rotation_quaternion = hand_fk.rotation_quaternion.copy()
+                    
+                    # 更新视图
+                    context.view_layer.update()
+        
         # 报告结果
         mode = "FK" if new_value == 1.0 else "IK"
-        self.report({'INFO'}, f"已切换 {limb_type} 到 {mode} 模式")
+        self.report({'INFO'}, f"已切换 {limb_type} 到 {mode} 模式,骨骼已正确跟随")
         
         return {'FINISHED'}
 
-class PIPELINE_OT_SwitchMode(Operator):
-    """
-    切换模式操作符
-    功能：在物体模式和姿态模式之间切换
-    参数：
-        mode: 目标模式（OBJECT: 物体模式, POSE: 姿态模式）
-    """
-    bl_idname = "pipeline.switch_mode"
-    bl_label = "切换模式"
+class PIPELINE_OT_ExecuteInstruction(Operator):
+    """执行指令操作符"""
+    bl_idname = "pipeline.execute_instruction"
+    bl_label = "执行指令"
+    bl_options = {'REGISTER', 'UNDO'}
     
-    mode: EnumProperty(
-        name="模式",
+    instruction_type: EnumProperty(
+        name="指令类型",
         items=[
-            ('OBJECT', "物体模式", ""),
-            ('POSE', "姿态模式", "")
+            ('ARM_IK_TO_FK', "手臂IK切换到FK", "执行手臂IK切换到FK的指令"),
+            ('ARM_FK_TO_IK', "手臂FK切换到IK", "执行手臂FK切换到IK的指令"),
+            ('LEG_IK_TO_FK', "腿部IK切换到FK", "执行腿部IK切换到FK的指令"),
+            ('LEG_FK_TO_IK', "腿部FK切换到IK", "执行腿部FK切换到IK的指令")
         ],
-        default='OBJECT'
+        default='ARM_IK_TO_FK'
     )
     
     def execute(self, context):
-        """执行模式切换操作"""
-        bpy.ops.object.mode_set(mode=self.mode)
-        return {'FINISHED'}
-
-class PIPELINE_OT_InstallExtensions(Operator):
-    """
-    安装扩展操作符
-    功能：安装Blender扩展
-    """
-    bl_idname = "pipeline.install_extensions"
-    bl_label = "安装扩展"
-    
-    def execute(self, context):
-        """执行安装扩展操作"""
-        # 扩展安装命令列表
-        install_commands = [
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='camera_shakify')",                # camera shakify
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='add_camera_rigs')",               # add camera rigs
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='f2')",                            # f2
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='auto_mirror')",                   # auto mirror
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='EdgeFlow')",                      # EdgeFlow
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='Half_Knife')",                    # Half Knife
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='copy_object_name_to_data')",       # copy object name to data
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='cell_fracture')",                 # cell fracture
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='icon_viewer')",                   # icon viewer
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='hot_node')",                      # hot node
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='material_library')",              # material library
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='mmd_tools')",                     # mmd tools
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='vrm')",                           # VRM format
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='mio3_uv')",                       # mio3 uv
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='named_attribute_list')",          # named attribute list
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='node_align')",                    # node align
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='node_group_presets')",            # node group presets
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='screencast_keys')",               # screencast keys
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='render_preset')",                 # render preset
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='quick_groups')",                  # quick groups
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='time_tracker')",                  # time tracker
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='toggle_language')",               # toggle language
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='ucupaint')",                      # Ucupaint
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='ZenUVChecker')",                  # Zen UV Checker
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='you_are_autosave')",              # you are autosave
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='Modifier_List_Fork')",            # Modifier 
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='right_mouse_navigation')",        # Right Mouse Navigation
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='simple_deform_helper')",          # simple deform helper
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='PlaceHelper')",                   # PlaceHelper
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='popoti_align_helper')",           # popoti align helper
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='Colorista')",                     # Colorista
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='proceduraltiles')",               # procedural 
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='noise_nodes')",                   # noise nodes
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='MustardUI')",                     # MustardUI
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='polychase')",                     # polychase
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='sakura_poselib')",                # sakura poselib
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='Sakura_Rig_GUI')",                # Sakura Rig GUI
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='easy_clouds')",                   # easy clouds
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='sapling_tree_gen')",              # sapling tree gen
-            "bpy.ops.extensions.package_install(repo_index=0, pkg_id='jiggle_physics')",                # jiggle physics
-        ]
+        # 获取指令
+        if self.instruction_type == 'ARM_IK_TO_FK':
+            instruction = context.scene.pipeline_arm_ik_to_fk_instruction
+        elif self.instruction_type == 'ARM_FK_TO_IK':
+            instruction = context.scene.pipeline_arm_fk_to_ik_instruction
+        elif self.instruction_type == 'LEG_IK_TO_FK':
+            instruction = context.scene.pipeline_leg_ik_to_fk_instruction
+        else:  # LEG_FK_TO_IK
+            instruction = context.scene.pipeline_leg_fk_to_ik_instruction
         
-        # 执行所有安装命令
-        for cmd in install_commands:
+        # 执行指令
+        if instruction:
             try:
-                # 执行命令
-                exec(cmd)
-                self.report({'INFO'}, f"已执行命令: {cmd}")
+                exec(instruction)
+                self.report({'INFO'}, f"已执行指令: {instruction}")
             except Exception as e:
-                self.report({'ERROR'}, f"执行命令失败: {cmd} - {str(e)}")
+                self.report({'ERROR'}, f"执行指令失败: {str(e)}")
+        else:
+            self.report({'WARNING'}, "指令为空")
         
         return {'FINISHED'}
 
-class PIPELINE_OT_UpdateExtensions(Operator):
-    """
-    更新扩展操作符
-    功能：更新所有已安装的扩展
-    """
-    bl_idname = "pipeline.update_extensions"
-    bl_label = "更新扩展"
+# 辅助函数
+def perpendicular_vector(v):
+    """返回一个垂直于给定向量的向量"""
+    if v.length < 1e-6:
+        return Vector((1, 0, 0))
     
-    def execute(self, context):
-        """执行更新所有扩展操作"""
-        try:
-            # 使用指定的命令更新所有扩展
-            bpy.ops.extensions.package_upgrade_all()
-            self.report({'INFO'}, "所有扩展已更新")
-        except Exception as e:
-            self.report({'ERROR'}, f"更新扩展失败: {str(e)}")
-        return {'FINISHED'}
+    # 尝试使用(1, 0, 0)叉乘
+    cross = v.cross(Vector((1, 0, 0)))
+    if cross.length > 1e-6:
+        return cross.normalized()
+    
+    # 如果叉乘结果太小，尝试使用(0, 1, 0)
+    cross = v.cross(Vector((0, 1, 0)))
+    return cross.normalized()
+
+def rotation_difference(mat1, mat2):
+    """计算两个矩阵之间的旋转差异"""
+    q1 = mat1.to_quaternion()
+    q2 = mat2.to_quaternion()
+    return q1.rotation_difference(q2).angle
+
+def match_pole_target(view_layer, ik_first, ik_last, pole, match_bone_matrix, length):
+    """匹配极目标位置"""
+    a = ik_first.matrix.to_translation()
+    b = ik_last.matrix.to_translation() + ik_last.vector
+    ikv = b - a
+    pv = perpendicular_vector(ikv).normalized() * length
+
+    def set_pole(pvi):
+        """设置极目标位置"""
+        pole_loc = a + (ikv/2) + pvi
+        pole.location = pole_loc
+        view_layer.update()
+
+    set_pole(pv)
+    angle = rotation_difference(ik_first.matrix, match_bone_matrix)
+
+    pv1 = Matrix.Rotation(angle, 4, ikv) @ pv
+    set_pole(pv1)
+    ang1 = rotation_difference(ik_first.matrix, match_bone_matrix)
+
+    pv2 = Matrix.Rotation(-angle, 4, ikv) @ pv
+    set_pole(pv2)
+    ang2 = rotation_difference(ik_first.matrix, match_bone_matrix)
+
+    if ang1 < ang2:
+        set_pole(pv1)
 
 #---------------------------------------------------------------
 # 面板类定义 - 用户界面(Panel)
 #---------------------------------------------------------------
 
 class PIPELINE_PT_MainPanel(Panel):
-    """
-    主面板类
-    功能：在3D视图的侧边栏显示插件的主要界面
-    位置：3D视图 > 侧边栏 > Pipeline Tools
-    """
-    bl_label = "Null Project Pipeline Box"
-    bl_space_type = 'VIEW_3D'  # 只在3D视图中显示
-    bl_region_type = 'UI'      # 侧边栏
-    bl_category = "Pipeline Tool"   # 标签名称
+    """主面板类"""
+    bl_label = "Null Project Pipeline ToolBox"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = "Pipeline ToolBox"
     
     def draw(self, context):
-        """
-        绘制面板UI
-        1. 显示功能分区选择
-        2. 根据选择的分区显示不同的工具
-        """
         layout = self.layout
         
         # 功能分区选择
@@ -585,14 +771,23 @@ class PIPELINE_PT_MainPanel(Panel):
             self.draw_animation_section(layout, context)
         elif context.scene.pipeline_active_section == 'RIGGING':
             self.draw_rigging_section(layout, context)
-        else:  # SETTINGS
+        else:  # SETTINGS   #
             self.draw_settings_section(layout, context)
+
+    def draw_default_section(self, layout, context):            
+        # 模式切换
+        box = layout.box()
+        row = box.row()
+        row.prop(context.scene, "pipeline_show_mode_tools", 
+                 icon='TRIA_DOWN' if context.scene.pipeline_show_mode_tools else 'TRIA_RIGHT',
+                 icon_only=True, emboss=False
+        )
+        row.label(text="模式切换")
+        
+        if context.scene.pipeline_show_mode_tools:
+            row = box.row()
+            row.operator("pipeline.switch_mode", text="物体模式").mode = 'OBJECT'
     
-    def draw_default_section(self, layout, context):
-        """
-        绘制默认分区
-        包含空物体工具和摄像机工具
-        """
         # 空物体工具
         box = layout.box()
         row = box.row()
@@ -621,10 +816,6 @@ class PIPELINE_PT_MainPanel(Panel):
             box.operator("pipeline.set_active_camera", text="设为活动摄像机")
     
     def draw_animation_section(self, layout, context):
-        """
-        绘制动画分区
-        包含模式切换、关键帧工具、IK/FK切换和预览工具
-        """
         # 模式切换
         box = layout.box()
         row = box.row()
@@ -664,6 +855,47 @@ class PIPELINE_PT_MainPanel(Panel):
         
         if context.scene.pipeline_show_ikfk_tools:
             box.operator("pipeline.ikfk_switch", text="切换IK/FK")
+            box.operator("pipeline.filter_ikfk_in_dopesheet", text="在摄影表中过滤IK_FK")
+            
+            # IK/FK指令工具
+            row = box.row()
+            row.prop(context.scene, "pipeline_show_ikfk_instructions", 
+                     icon='TRIA_DOWN' if context.scene.pipeline_show_ikfk_instructions else 'TRIA_RIGHT',
+                     icon_only=True, emboss=False
+            )
+            row.label(text="IK/FK指令工具")
+            
+            if context.scene.pipeline_show_ikfk_instructions:
+                # 预设指令
+                box.label(text="预设指令（直接执行）", icon='SCRIPT')
+                
+                # 手臂IK切换到FK指令
+                row = box.row()
+                row.prop(context.scene, "pipeline_arm_ik_to_fk_instruction", text="手臂IK->FK")
+                op = row.operator("pipeline.execute_instruction", text="IK->FK", icon='PLAY')
+                op.instruction_type = 'ARM_IK_TO_FK'
+                
+                # 手臂FK切换到IK指令
+                row = box.row()
+                row.prop(context.scene, "pipeline_arm_fk_to_ik_instruction", text="手臂FK->IK")
+                op = row.operator("pipeline.execute_instruction", text="FK->IK", icon='PLAY')
+                op.instruction_type = 'ARM_FK_TO_IK'
+                
+                # 腿部IK切换到FK指令
+                row = box.row()
+                row.prop(context.scene, "pipeline_leg_ik_to_fk_instruction", text="腿部IK->FK")
+                op = row.operator("pipeline.execute_instruction", text="IK->FK", icon='PLAY')
+                op.instruction_type = 'LEG_IK_TO_FK'
+                
+                # 腿部FK切换到IK指令
+                row = box.row()
+                row.prop(context.scene, "pipeline_leg_fk_to_ik_instruction", text="腿部FK->IK")
+                op = row.operator("pipeline.execute_instruction", text="FK->IK", icon='PLAY')
+                op.instruction_type = 'LEG_FK_TO_IK'
+                
+                # 提示
+                box.label(text="指令格式: bpy.ops.pose.rigify_...", icon='INFO')
+                box.label(text="例如: bpy.ops.pose.rigify_limb_ik2fk_unu81nec92ae7d86(...)")
         
         # 预览工具
         box = layout.box()
@@ -713,10 +945,6 @@ class PIPELINE_PT_MainPanel(Panel):
                 row.operator("pipeline.delete_playblast", text="删除预览动画", icon='TRASH')
     
     def draw_rigging_section(self, layout, context):
-        """
-        绘制骨骼分区
-        包含骨骼工具和模式切换
-        """
         # 模式切换子分区
         box = layout.box()
         row = box.row()
@@ -725,7 +953,6 @@ class PIPELINE_PT_MainPanel(Panel):
                  icon_only=True, emboss=False
         )
         row.label(text="模式切换")
-
         
         if context.scene.pipeline_show_mode_tools_rigging:
             # 模式切换按钮
@@ -733,6 +960,7 @@ class PIPELINE_PT_MainPanel(Panel):
             row.operator("pipeline.switch_mode", text="物体模式").mode = 'OBJECT'
             row.operator("pipeline.switch_mode", text="姿态模式").mode = 'POSE'
 
+        # 骨骼工具子分区
         box = layout.box()
         row = box.row()
         row.prop(context.scene, "pipeline_show_rig_tools", 
@@ -741,7 +969,6 @@ class PIPELINE_PT_MainPanel(Panel):
         )
         row.label(text="骨骼工具")
         if context.scene.pipeline_show_rig_tools:
-
             # 添加骨骼按钮
             row = box.row()
             row.operator("pipeline.add_metarig", text="Human Metarig").rig_type = 'METARIG'
@@ -752,32 +979,31 @@ class PIPELINE_PT_MainPanel(Panel):
             row.operator("pipeline.generate_rig", text="生成绑定")
     
     def draw_settings_section(self, layout, context):
-        """
-        绘制设置分区
-        包含扩展工具
-        """
         box = layout.box()
         row = box.row()
         row.prop(context.scene, "pipeline_show_extension_tools", 
                  icon='TRIA_DOWN' if context.scene.pipeline_show_extension_tools else 'TRIA_RIGHT',
                  icon_only=True, emboss=False
         )
-        row.label(text="扩展")
+        row.label(text="安装我需要使用的扩展")
         
         if context.scene.pipeline_show_extension_tools:
             row = box.row()
-            row.operator("pipeline.install_extensions", text="在线安装需要的扩展")
             row.operator("pipeline.update_extensions", text="在线更新已安装的扩展")
+            row.operator("pipeline.install_extensions", text="在线安装需要的扩展")
+
+            # 提示
+            box.label(text="提示: 不建议使用安装扩展的功能", icon='INFO')
+            box.label(text="提示: 下载安装扩展的时候会需要很长时间", icon='INFO')
+            box.label(text="提示: 在安装时不要乱动blender,请保证有充足的时间情况下在下载和安装扩展.", icon='INFO')
+            box.label(text="提示: 请保证有充足的时间情况下在下载和安装扩展.", icon='INFO')
+            box.label(text="提示: 更新扩展可能需要重新启动Blender", icon='INFO')
 
 #---------------------------------------------------------------
 # 属性注册 - 自定义场景属性
 #---------------------------------------------------------------
 
 def register_properties():
-    """
-    注册插件属性
-    功能：定义插件使用的所有场景属性
-    """
     # 预览动画属性
     bpy.types.Scene.pipeline_playblast_quality = EnumProperty(
         name="预览质量",
@@ -896,12 +1122,38 @@ def register_properties():
         name="显示模式工具（骨骼分区）",
         default=True
     )
+    
+    bpy.types.Scene.pipeline_show_ikfk_instructions = BoolProperty(
+        name="显示IK/FK指令工具",
+        default=True
+    )
+    
+    # 预设指令属性
+    bpy.types.Scene.pipeline_arm_ik_to_fk_instruction = StringProperty(
+        name="手臂IK切换到FK指令",
+        default="",
+        description="输入bpy.ops指令,用于手臂IK切换到FK"
+    )
+    
+    bpy.types.Scene.pipeline_arm_fk_to_ik_instruction = StringProperty(
+        name="手臂FK切换到IK指令",
+        default="",
+        description="输入bpy.ops指令,用于手臂FK切换到IK"
+    )
+    
+    bpy.types.Scene.pipeline_leg_ik_to_fk_instruction = StringProperty(
+        name="腿部IK切换到FK指令",
+        default="",
+        description="输入bpy.ops指令,用于腿部IK切换到FK"
+    )
+    
+    bpy.types.Scene.pipeline_leg_fk_to_ik_instruction = StringProperty(
+        name="腿部FK切换到IK指令",
+        default="",
+        description="输入bpy.ops指令,用于腿部FK切换到IK"
+    )
 
 def unregister_properties():
-    """
-    注销插件属性
-    功能：移除插件添加的所有场景属性
-    """
     # 预览动画属性
     del bpy.types.Scene.pipeline_playblast_quality
     del bpy.types.Scene.pipeline_playblast_format
@@ -927,6 +1179,13 @@ def unregister_properties():
     del bpy.types.Scene.pipeline_show_rig_tools
     del bpy.types.Scene.pipeline_show_extension_tools
     del bpy.types.Scene.pipeline_show_mode_tools_rigging
+    del bpy.types.Scene.pipeline_show_ikfk_instructions
+    
+    # 预设指令属性
+    del bpy.types.Scene.pipeline_arm_ik_to_fk_instruction
+    del bpy.types.Scene.pipeline_arm_fk_to_ik_instruction
+    del bpy.types.Scene.pipeline_leg_ik_to_fk_instruction
+    del bpy.types.Scene.pipeline_leg_fk_to_ik_instruction
 
 #---------------------------------------------------------------
 # 注册与注销 - 插件生命周期管理
@@ -934,7 +1193,7 @@ def unregister_properties():
 
 # 所有类的列表
 classes = (
-    PIPELINE_OT_AddMetarig,
+    PIPELINE_OT_Addrigfy,
     PIPELINE_OT_GenerateRig,
     PIPELINE_OT_Playblast,
     PIPELINE_OT_DeletePlayblast,
@@ -942,20 +1201,16 @@ classes = (
     PIPELINE_OT_AddEmpty,
     PIPELINE_OT_SetActiveCamera,
     PIPELINE_OT_KeyframeCharacter,
-    PIPELINE_OT_IKFKSwitch,
     PIPELINE_OT_SwitchMode,
     PIPELINE_OT_InstallExtensions,
     PIPELINE_OT_UpdateExtensions,
+    PIPELINE_OT_FilterIKFKInDopesheet,
+    PIPELINE_OT_IKFKSwitch,
+    PIPELINE_OT_ExecuteInstruction,
     PIPELINE_PT_MainPanel
 )
 
 def register():
-    """
-    注册插件
-    功能：
-    1. 注册所有操作符和面板类
-    2. 注册插件属性
-    """
     # 注册所有类
     for cls in classes:
         bpy.utils.register_class(cls)
@@ -965,12 +1220,6 @@ def register():
     print("Null Project Pipeline Tool Box 已注册")
 
 def unregister():
-    """
-    注销插件
-    功能：
-    1. 注销所有操作符和面板类
-    2. 注销插件属性
-    """
     # 注销所有类
     for cls in classes:
         bpy.utils.unregister_class(cls)
